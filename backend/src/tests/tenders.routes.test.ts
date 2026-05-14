@@ -119,6 +119,7 @@ describe('PATCH /api/v1/tenders/:id/bids/:bidId', () => {
   });
 
   it('awards bid and updates tender', async () => {
+    mockBid.findUnique.mockResolvedValue({ id: 'b1', tenderId: 't1', status: 'PENDING' } as any);
     mockBid.update.mockResolvedValue({ id: 'b1', status: 'AWARDED' } as any);
     mockTender.update.mockResolvedValue({} as any);
     const res = await request(app)
@@ -129,5 +130,14 @@ describe('PATCH /api/v1/tenders/:id/bids/:bidId', () => {
     expect(mockTender.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: 'AWARDED', awardedBidId: 'b1' }) })
     );
+  });
+
+  it('returns 404 when bid does not belong to the tender', async () => {
+    mockBid.findUnique.mockResolvedValue({ id: 'b1', tenderId: 'other-tender', status: 'PENDING' } as any);
+    const res = await request(app)
+      .patch('/api/v1/tenders/t1/bids/b1')
+      .set(govToken)
+      .send({ status: 'SHORTLISTED' });
+    expect(res.status).toBe(404);
   });
 });

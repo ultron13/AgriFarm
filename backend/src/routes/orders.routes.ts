@@ -119,6 +119,59 @@ ordersRouter.post(
   }
 );
 
+const disputeSchema = z.object({
+  reason: z.string().min(10),
+});
+
+const DISPUTABLE_STATUSES = ['DELIVERED', 'IN_TRANSIT', 'AT_HUB', 'OUT_FOR_DELIVERY'];
+
+ordersRouter.post(
+  '/:id/dispute',
+  authenticate,
+  requireRole(['BUYER', 'ADMIN', 'SUPER_ADMIN']),
+  validateBody(disputeSchema),
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const { reason } = req.body as z.infer<typeof disputeSchema>;
+
+      const order = await prisma.order.findUnique({ where: { id: req.params.id } });
+      if (!order) { res.status(404).json(err('NOT_FOUND', 'Order not found')); return; }
+
+      if (req.user.role === 'BUYER') {
+        const buyer = await prisma.buyer.findUnique({ where: { userId: req.user.sub } });
+        if (!buyer || order.buyerId !== buyer.id) {
+          res.status(403).json(err('FORBIDDEN', 'You can only dispute your own orders'));
+          return;
+        }
+      }
+
+      if (!DISPUTABLE_STATUSES.includes(order.status)) {
+        res.status(409).json(err('INVALID_STATE', `Cannot dispute an order with status ${order.status}`));
+        return;
+      }
+
+      // Atomically mark order DISPUTED and cancel any pending payouts so
+      // the payout job (which skips non-PENDING records) cannot pay out
+      // while the dispute is open.
+      const [updated] = await prisma.$transaction([
+        prisma.order.update({
+          where: { id: order.id },
+          data: {
+            status: 'DISPUTED',
+            notes: order.notes ? `${order.notes}\n[DISPUTE] ${reason}` : `[DISPUTE] ${reason}`,
+          },
+        }),
+        prisma.payout.updateMany({
+          where: { orderId: order.id, status: 'PENDING' },
+          data: { status: 'CANCELLED' },
+        }),
+      ]);
+
+      res.json(ok(updated));
+    } catch (e) { next(e); }
+  }
+);
+
 const VALID_STATUSES = ['PENDING', 'CONFIRMED', 'QUALITY_CHECKED', 'IN_TRANSIT', 'AT_HUB', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
 
 ordersRouter.patch(

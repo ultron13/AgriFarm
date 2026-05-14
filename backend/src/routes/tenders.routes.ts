@@ -116,7 +116,7 @@ tendersRouter.get('/:id', authenticate, async (req: AuthenticatedRequest, res: R
   } catch (e) { next(e); }
 });
 
-// PATCH /tenders/:id — update status (GOV_BUYER owner)
+// PATCH /tenders/:id — update status (GOV_BUYER owner or ADMIN)
 tendersRouter.patch('/:id', authenticate, requireRole(['GOV_BUYER', 'ADMIN', 'SUPER_ADMIN']), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { status } = req.body;
@@ -124,12 +124,24 @@ tendersRouter.patch('/:id', authenticate, requireRole(['GOV_BUYER', 'ADMIN', 'SU
       res.status(400).json(err('INVALID_STATUS', 'Status must be EVALUATION or CANCELLED'));
       return;
     }
-    const tender = await prisma.tender.update({
-      where: { id: req.params.id },
+
+    const tender = await prisma.tender.findUnique({ where: { id: req.params.id } });
+    if (!tender) { res.status(404).json(err('NOT_FOUND', 'Tender not found')); return; }
+
+    if (req.user.role === 'GOV_BUYER') {
+      const buyer = await prisma.buyer.findUnique({ where: { userId: req.user.sub } });
+      if (!buyer || tender.buyerId !== buyer.id) {
+        res.status(403).json(err('FORBIDDEN', 'You can only update your own tenders'));
+        return;
+      }
+    }
+
+    const updated = await prisma.tender.update({
+      where: { id: tender.id },
       data: { status },
       include: tenderInclude,
     });
-    res.json(ok(tender));
+    res.json(ok(updated));
   } catch (e) { next(e); }
 });
 
@@ -187,8 +199,19 @@ tendersRouter.patch('/:id/bids/:bidId', authenticate, requireRole(['GOV_BUYER', 
       return;
     }
 
-    const bid = await prisma.tenderBid.update({
+    // Fetch first so we can verify the bid belongs to this tender (prevents BOLA)
+    const bid = await prisma.tenderBid.findUnique({
       where: { id: req.params.bidId },
+      include: { farmer: { include: { organization: true } } },
+    });
+    if (!bid) { res.status(404).json(err('NOT_FOUND', 'Bid not found')); return; }
+    if (bid.tenderId !== req.params.id) {
+      res.status(404).json(err('NOT_FOUND', 'Bid not found for this tender'));
+      return;
+    }
+
+    const updated = await prisma.tenderBid.update({
+      where: { id: bid.id },
       data: { status, evaluatedAt: new Date() },
       include: { farmer: { include: { organization: true } } },
     });
@@ -200,6 +223,6 @@ tendersRouter.patch('/:id/bids/:bidId', authenticate, requireRole(['GOV_BUYER', 
       });
     }
 
-    res.json(ok(bid));
+    res.json(ok(updated));
   } catch (e) { next(e); }
 });
