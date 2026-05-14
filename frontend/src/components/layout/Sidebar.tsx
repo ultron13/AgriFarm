@@ -3,7 +3,7 @@ import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth';
 import {
   ShoppingBasket, PackageCheck, Sprout, Wallet, ClipboardCheck,
-  Truck, BarChart3, LogOut, Leaf, type LucideIcon,
+  Truck, BarChart3, LogOut, Leaf, Users, type LucideIcon,
 } from 'lucide-react';
 
 interface NavItem {
@@ -18,6 +18,7 @@ const NAV: NavItem[] = [
   { to: '/orders',   label: 'Orders',          Icon: PackageCheck,    roles: ['BUYER', 'FARMER', 'ADMIN', 'SUPER_ADMIN', 'LOGISTICS_COORDINATOR'] },
   { to: '/listings', label: 'My Listings',     Icon: Sprout,          roles: ['FARMER', 'ADMIN', 'SUPER_ADMIN'] },
   { to: '/payouts',  label: 'Payouts',          Icon: Wallet,          roles: ['FARMER', 'ADMIN', 'SUPER_ADMIN'] },
+  { to: '/sales',    label: 'My Farmers',       Icon: Users,           roles: ['SALES_REP', 'ADMIN', 'SUPER_ADMIN'] },
   { to: '/quality',  label: 'Quality Checks',  Icon: ClipboardCheck,  roles: ['FIELD_AGENT', 'ADMIN', 'SUPER_ADMIN'] },
   { to: '/logistics',label: 'Logistics',        Icon: Truck,           roles: ['LOGISTICS_COORDINATOR', 'ADMIN', 'SUPER_ADMIN'] },
   { to: '/reports',  label: 'Reports',          Icon: BarChart3,       roles: ['ADMIN', 'SUPER_ADMIN'] },

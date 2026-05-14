@@ -88,6 +88,13 @@ async function main() {
   await prisma.payout.upsert({ where: { id: 'pay-demo-001' }, update: {}, create: { id: 'pay-demo-001', orderId: 'ord-demo-001', farmerId: farmer1.id, grossAmount: 1100, commission: 55, netAmount: 1045, status: PayoutStatus.PAID, scheduledFor: new Date(Date.now() - 86400000), paidAt: new Date(Date.now() - 43200000) } });
   await prisma.payout.upsert({ where: { id: 'pay-demo-002' }, update: {}, create: { id: 'pay-demo-002', orderId: 'ord-demo-002', farmerId: farmer2.id, grossAmount: 930, commission: 46.50, netAmount: 883.50, status: PayoutStatus.PENDING, scheduledFor: new Date(Date.now() + 86400000) } });
 
+  // ── Sales rep user ────────────────────────────────────────────────────────
+  await prisma.user.upsert({
+    where: { email: 'sales@demo.farmconnect.co.za' },
+    update: {},
+    create: { email: 'sales@demo.farmconnect.co.za', passwordHash: pw, role: 'SALES_REP' },
+  });
+
   // ── Field agent user ──────────────────────────────────────────────────────
   await prisma.user.upsert({
     where: { email: 'agent@demo.farmconnect.co.za' },
@@ -146,6 +153,7 @@ async function main() {
   console.log('Demo seed complete ✓');
   console.log('  Farmers:   mahela@demo, zz2@demo, mog@demo (pw: demo1234)');
   console.log('  Buyer:     buyer@demo.farmconnect.co.za  (pw: demo1234)');
+  console.log('  Sales rep:   sales@demo.farmconnect.co.za (pw: demo1234)');
   console.log('  Field agent: agent@demo.farmconnect.co.za (pw: demo1234)');
   console.log('  Logistics: logistics@demo.farmconnect.co.za (pw: demo1234)');
   console.log('  Listings: 5 active across Limpopo');

@@ -57,6 +57,18 @@ export interface Farmer {
   isSmallholder: boolean;
 }
 
+export interface FarmerProfile {
+  id: string;
+  displayName: string;
+  province: string;
+  district: string;
+  isSmallholder: boolean;
+  ficaVerified: boolean;
+  organization: { id: string; name: string } | null;
+  user: { email: string; phone: string | null };
+  _count: { listings: number };
+}
+
 export interface Listing {
   id: string;
   farmGatePrice: number;

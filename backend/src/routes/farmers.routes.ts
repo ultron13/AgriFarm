@@ -8,14 +8,26 @@ import { ok, err, paginate, AuthenticatedRequest } from '../types';
 
 export const farmersRouter = Router();
 
+const PROVINCES = ['LIMPOPO', 'MPUMALANGA', 'GAUTENG', 'NORTH_WEST', 'FREE_STATE', 'KWAZULU_NATAL', 'WESTERN_CAPE', 'EASTERN_CAPE', 'NORTHERN_CAPE'] as const;
+
 const createFarmerSchema = z.object({
   displayName: z.string().min(2),
-  province: z.enum(['LIMPOPO', 'MPUMALANGA', 'GAUTENG', 'NORTH_WEST', 'FREE_STATE', 'KWAZULU_NATAL', 'WESTERN_CAPE', 'EASTERN_CAPE', 'NORTHERN_CAPE']),
+  province: z.enum(PROVINCES),
   district: z.string(),
   gpsLat: z.number().optional(),
   gpsLng: z.number().optional(),
   organizationId: z.string().uuid().optional(),
   isSmallholder: z.boolean().default(false),
+});
+
+const onboardFarmerSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  displayName: z.string().min(2),
+  province: z.enum(PROVINCES),
+  district: z.string(),
+  isSmallholder: z.boolean().default(false),
+  organizationId: z.string().uuid().optional(),
 });
 
 farmersRouter.get('/', authenticate, requireRole(['ADMIN', 'SUPER_ADMIN', 'SALES_REP', 'FIELD_AGENT', 'LOGISTICS_COORDINATOR']), async (req, res: Response, next: NextFunction) => {
@@ -26,7 +38,14 @@ farmersRouter.get('/', authenticate, requireRole(['ADMIN', 'SUPER_ADMIN', 'SALES
 
     const where = { deletedAt: null, ...(province && { province: province as never }), ...(isSmallholder !== undefined && { isSmallholder }) };
     const [farmers, total] = await Promise.all([
-      prisma.farmer.findMany({ where, skip, take, include: { organization: true, user: { select: { email: true, phone: true } } } }),
+      prisma.farmer.findMany({
+        where, skip, take,
+        include: {
+          organization: true,
+          user: { select: { email: true, phone: true } },
+          _count: { select: { listings: { where: { status: 'ACTIVE', deletedAt: null } } } },
+        },
+      }),
       prisma.farmer.count({ where }),
     ]);
     res.json(ok(farmers, { page, perPage, total }));
@@ -65,6 +84,36 @@ farmersRouter.get('/:id', authenticate, async (req: AuthenticatedRequest, res: R
     });
     if (!farmer) { res.status(404).json(err('NOT_FOUND', 'Farmer not found')); return; }
     res.json(ok(farmer));
+  } catch (e) {
+    next(e);
+  }
+});
+
+farmersRouter.post('/onboard', authenticate, requireRole(['SALES_REP', 'ADMIN', 'SUPER_ADMIN']), validateBody(onboardFarmerSchema), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const body = req.body as z.infer<typeof onboardFarmerSchema>;
+    const bcrypt = await import('bcryptjs');
+    const passwordHash = await bcrypt.hash(body.password, 10);
+
+    const existing = await prisma.user.findUnique({ where: { email: body.email } });
+    if (existing) { res.status(409).json(err('CONFLICT', 'Email already registered')); return; }
+
+    const farmer = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({ data: { email: body.email, passwordHash, role: 'FARMER' } });
+      return tx.farmer.create({
+        data: {
+          userId: user.id,
+          displayName: body.displayName,
+          province: body.province as never,
+          district: body.district,
+          isSmallholder: body.isSmallholder,
+          organizationId: body.organizationId,
+        },
+        include: { organization: true, user: { select: { email: true } } },
+      });
+    });
+
+    res.status(201).json(ok(farmer));
   } catch (e) {
     next(e);
   }

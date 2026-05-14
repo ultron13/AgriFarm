@@ -11,6 +11,7 @@ import { AdminOrdersPage } from '@/pages/admin/OrdersPage';
 import { ReportsPage } from '@/pages/admin/ReportsPage';
 import { QualityCheckPage } from '@/pages/field-agent/QualityCheckPage';
 import { LogisticsPage } from '@/pages/logistics/LogisticsPage';
+import { SalesRepPage } from '@/pages/sales/SalesRepPage';
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/quality" element={<QualityCheckPage />} />
         <Route path="/logistics" element={<LogisticsPage />} />
+        <Route path="/sales" element={<SalesRepPage />} />
         <Route path="/" element={<Navigate to="/browse" replace />} />
       </Route>
     </Routes>
