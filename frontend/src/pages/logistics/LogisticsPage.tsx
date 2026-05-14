@@ -121,7 +121,7 @@ export function LogisticsPage() {
   const routes = routesData?.data ?? [];
 
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState('');
   const [advancingId, setAdvancingId] = useState<string | null>(null);
 
   const activeRouteId = selectedRouteId ?? routes[0]?.id ?? null;
@@ -248,8 +248,8 @@ export function LogisticsPage() {
           {!deliveriesLoading && sorted.length === 0 && activeRouteId && (
             <div className="text-center py-20 text-gray-400">
               <AlertCircle size={32} className="mx-auto mb-3 opacity-40" />
-              <p className="font-medium text-gray-600">No deliveries for this date</p>
-              <p className="text-sm mt-1">Try a different date or check that orders have been assigned to this route</p>
+              <p className="font-medium text-gray-600">{date ? 'No deliveries for this date' : 'No deliveries on this route'}</p>
+              <p className="text-sm mt-1">{date ? 'Try a different date or' : 'Check that'} orders have been assigned to this route</p>
             </div>
           )}
 

@@ -24,6 +24,7 @@ const ROLE_HOME: Record<string, string> = {
 function OrdersPage() {
   const { user } = useAuth();
   if (user?.role === 'FARMER') return <FarmerOrdersPage />;
+  if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') return <AdminOrdersPage />;
   return <BuyerOrdersPage />;
 }
 

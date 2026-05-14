@@ -105,6 +105,7 @@ export function FarmerDashboardPage() {
                 {recentOrders.map((order) => {
                   const firstItem = order.items[0];
                   const totalKg = order.items.reduce((s, i) => s + Number(i.quantityKg), 0);
+                  const farmGate = order.items.reduce((s, i) => s + Number(i.farmGatePrice) * Number(i.quantityKg), 0);
                   return (
                     <div key={order.id} className="flex items-center gap-3 px-5 py-3.5">
                       <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
@@ -120,7 +121,7 @@ export function FarmerDashboardPage() {
                         </p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-sm font-semibold text-gray-900">R{Number(order.deliveredPrice).toLocaleString('en-ZA', { minimumFractionDigits: 0 })}</p>
+                        <p className="text-sm font-semibold text-gray-900">R{farmGate.toLocaleString('en-ZA', { minimumFractionDigits: 0 })}</p>
                         <p className="text-xs text-gray-400">{new Date(order.deliveryDate).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}</p>
                       </div>
                     </div>
