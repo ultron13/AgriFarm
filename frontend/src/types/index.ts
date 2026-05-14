@@ -47,6 +47,7 @@ export interface Listing {
   status: ListingStatus;
   product: Product;
   farmer: Pick<Farmer, 'displayName' | 'province'>;
+  grade?: { grade: string; description: string } | null;
   photos: Array<{ url: string }>;
 }
 
