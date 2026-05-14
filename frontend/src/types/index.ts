@@ -92,6 +92,49 @@ export interface Order {
   createdAt: string;
 }
 
+export type DeliveryStatus =
+  | 'SCHEDULED' | 'COLLECTED' | 'AT_HUB' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'FAILED' | 'RETURNED';
+
+export interface LogisticsRoute {
+  id: string;
+  name: string;
+  corridor: string;
+  departureTime: string;
+  estimatedHours: number;
+  isActive: boolean;
+  _count?: { deliveries: number };
+}
+
+export interface DeliveryOrderItem {
+  id: string;
+  quantityKg: number;
+  listing: { product: { name: string } };
+}
+
+export interface DeliveryOrder {
+  id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  deliveryDate: string;
+  buyer: { displayName: string };
+  items: DeliveryOrderItem[];
+}
+
+export interface Delivery {
+  id: string;
+  orderId: string;
+  routeId: string | null;
+  status: DeliveryStatus;
+  vehicleRef: string | null;
+  driverName: string | null;
+  driverPhone: string | null;
+  collectionAt: string | null;
+  hubArrivalAt: string | null;
+  deliveredAt: string | null;
+  trackingUrl: string | null;
+  order: DeliveryOrder;
+}
+
 export interface Payout {
   id: string;
   grossAmount: number;

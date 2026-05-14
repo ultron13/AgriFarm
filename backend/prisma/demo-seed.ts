@@ -88,15 +88,60 @@ async function main() {
   await prisma.payout.upsert({ where: { id: 'pay-demo-001' }, update: {}, create: { id: 'pay-demo-001', orderId: 'ord-demo-001', farmerId: farmer1.id, grossAmount: 1100, commission: 55, netAmount: 1045, status: PayoutStatus.PAID, scheduledFor: new Date(Date.now() - 86400000), paidAt: new Date(Date.now() - 43200000) } });
   await prisma.payout.upsert({ where: { id: 'pay-demo-002' }, update: {}, create: { id: 'pay-demo-002', orderId: 'ord-demo-002', farmerId: farmer2.id, grossAmount: 930, commission: 46.50, netAmount: 883.50, status: PayoutStatus.PENDING, scheduledFor: new Date(Date.now() + 86400000) } });
 
-  // Delivery records
-  await prisma.delivery.upsert({ where: { orderId: 'ord-demo-001' }, update: {}, create: { orderId: 'ord-demo-001', status: DeliveryStatus.DELIVERED, vehicleRef: 'RT-LIM-004', driverName: 'Johannes Sithole', driverPhone: '+27821234567', collectionAt: new Date(Date.now() - 172800000), deliveredAt: new Date(Date.now() - 86400000) } });
-  await prisma.delivery.upsert({ where: { orderId: 'ord-demo-002' }, update: {}, create: { orderId: 'ord-demo-002', status: DeliveryStatus.AT_HUB, vehicleRef: 'RT-LIM-004', driverName: 'Johannes Sithole', driverPhone: '+27821234567', collectionAt: new Date(Date.now() - 21600000) } });
+  // ── Logistics coordinator user ─────────────────────────────────────────────
+  await prisma.user.upsert({
+    where: { email: 'logistics@demo.farmconnect.co.za' },
+    update: {},
+    create: { email: 'logistics@demo.farmconnect.co.za', passwordHash: pw, role: 'LOGISTICS_COORDINATOR' },
+  });
+
+  // ── Logistics route ───────────────────────────────────────────────────────
+  const n1Route = await prisma.logisticsRoute.upsert({
+    where: { id: 'route-n1-lgc' },
+    update: {},
+    create: { id: 'route-n1-lgc', name: 'N1 Limpopo–Gauteng Corridor', corridor: 'LIMPOPO_GAUTENG', departureTime: '04:00', estimatedHours: 7, isActive: true },
+  });
+
+  // ── Delivery records ───────────────────────────────────────────────────────
+  await prisma.delivery.upsert({
+    where: { orderId: 'ord-demo-001' },
+    update: { routeId: n1Route.id },
+    create: {
+      orderId: 'ord-demo-001', routeId: n1Route.id,
+      status: DeliveryStatus.DELIVERED,
+      vehicleRef: 'FC-TRK-001', driverName: 'Sipho Dlamini', driverPhone: '+27721110001',
+      collectionAt: new Date(Date.now() - 8 * 3600000),
+      hubArrivalAt: new Date(Date.now() - 4 * 3600000),
+      deliveredAt: new Date(Date.now() - 1 * 3600000),
+    },
+  });
+  await prisma.delivery.upsert({
+    where: { orderId: 'ord-demo-002' },
+    update: { routeId: n1Route.id },
+    create: {
+      orderId: 'ord-demo-002', routeId: n1Route.id,
+      status: DeliveryStatus.AT_HUB,
+      vehicleRef: 'FC-TRK-002', driverName: 'Themba Ndlovu', driverPhone: '+27721110002',
+      collectionAt: new Date(Date.now() - 6 * 3600000),
+      hubArrivalAt: new Date(Date.now() - 2 * 3600000),
+    },
+  });
+  await prisma.delivery.upsert({
+    where: { orderId: 'ord-demo-003' },
+    update: { routeId: n1Route.id },
+    create: {
+      orderId: 'ord-demo-003', routeId: n1Route.id,
+      status: DeliveryStatus.SCHEDULED,
+      vehicleRef: 'FC-TRK-001', driverName: 'Sipho Dlamini', driverPhone: '+27721110001',
+    },
+  });
 
   console.log('Demo seed complete ✓');
-  console.log('  Farmers: mahela@demo, zz2@demo, mog@demo (pw: demo1234)');
-  console.log('  Buyer:   buyer@demo.farmconnect.co.za  (pw: demo1234)');
+  console.log('  Farmers:   mahela@demo, zz2@demo, mog@demo (pw: demo1234)');
+  console.log('  Buyer:     buyer@demo.farmconnect.co.za  (pw: demo1234)');
+  console.log('  Logistics: logistics@demo.farmconnect.co.za (pw: demo1234)');
   console.log('  Listings: 5 active across Limpopo');
-  console.log('  Orders: 3 (1 delivered, 1 in transit, 1 confirmed)');
+  console.log('  Orders: 3 (1 delivered, 1 at hub, 1 scheduled)');
 }
 
 main().catch(console.error).finally(() => prisma.$disconnect());

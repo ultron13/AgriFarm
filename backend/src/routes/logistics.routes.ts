@@ -15,13 +15,17 @@ logisticsRouter.get('/routes', authenticate, requireRole(['ADMIN', 'SUPER_ADMIN'
 
 logisticsRouter.get('/routes/:id/deliveries', authenticate, requireRole(['ADMIN', 'SUPER_ADMIN', 'LOGISTICS_COORDINATOR']), async (req, res: Response, next: NextFunction) => {
   try {
-    const date = req.query.date ? new Date(req.query.date as string) : new Date();
-    const startOfDay = new Date(date); startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(date); endOfDay.setHours(23, 59, 59, 999);
+    const dateFilter = req.query.date ? (() => {
+      const d = new Date(req.query.date as string);
+      const s = new Date(d); s.setHours(0, 0, 0, 0);
+      const e = new Date(d); e.setHours(23, 59, 59, 999);
+      return { deliveryDate: { gte: s, lte: e } };
+    })() : undefined;
 
     const deliveries = await prisma.delivery.findMany({
-      where: { routeId: req.params.id, order: { deliveryDate: { gte: startOfDay, lte: endOfDay } } },
+      where: { routeId: req.params.id, ...(dateFilter && { order: dateFilter }) },
       include: { order: { include: { buyer: true, items: { include: { listing: { include: { product: true } } } } } } },
+      orderBy: { order: { deliveryDate: 'asc' } },
     });
     res.json(ok(deliveries));
   } catch (e) { next(e); }
