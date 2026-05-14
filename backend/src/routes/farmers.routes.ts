@@ -16,7 +16,7 @@ const createFarmerSchema = z.object({
   district: z.string(),
   gpsLat: z.number().optional(),
   gpsLng: z.number().optional(),
-  organizationId: z.string().uuid().optional(),
+  organizationId: z.string().min(1).optional(),
   isSmallholder: z.boolean().default(false),
 });
 
@@ -27,7 +27,7 @@ const onboardFarmerSchema = z.object({
   province: z.enum(PROVINCES),
   district: z.string(),
   isSmallholder: z.boolean().default(false),
-  organizationId: z.string().uuid().optional(),
+  organizationId: z.string().min(1).optional(),
 });
 
 farmersRouter.get('/', authenticate, requireRole(['ADMIN', 'SUPER_ADMIN', 'SALES_REP', 'FIELD_AGENT', 'LOGISTICS_COORDINATOR']), async (req, res: Response, next: NextFunction) => {

@@ -9,8 +9,8 @@ import { ok, err, AuthenticatedRequest } from '../types';
 export const qualityRouter = Router();
 
 const createCheckSchema = z.object({
-  orderId: z.string().uuid(),
-  farmerId: z.string().uuid(),
+  orderId: z.string().min(1),
+  farmerId: z.string().min(1),
   gradeAwarded: z.enum(['A', 'B', 'C', 'REJECTED']),
   quantityKg: z.number().positive(),
   rejectedKg: z.number().min(0).default(0),

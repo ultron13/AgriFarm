@@ -13,7 +13,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 export const listingsRouter = Router();
 
 const listingQuerySchema = z.object({
-  productId: z.string().uuid().optional(),
+  productId: z.string().optional(),
   province: z.string().optional(),
   minKg: z.coerce.number().optional(),
   page: z.string().optional(),
@@ -21,8 +21,8 @@ const listingQuerySchema = z.object({
 });
 
 const createListingSchema = z.object({
-  productId: z.string().uuid(),
-  gradeId: z.string().uuid().optional(),
+  productId: z.string().min(1),
+  gradeId: z.string().optional(),
   farmGatePrice: z.number().positive(),
   availableKg: z.number().positive(),
   minimumOrderKg: z.number().positive().default(50),

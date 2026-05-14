@@ -10,7 +10,7 @@ import { OrderService } from '../services/order.service';
 export const ordersRouter = Router();
 
 const orderItemSchema = z.object({
-  listingId: z.string().uuid(),
+  listingId: z.string().min(1),
   quantityKg: z.number().positive(),
 });
 

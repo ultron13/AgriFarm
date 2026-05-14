@@ -10,7 +10,7 @@ import { ok, err, AuthenticatedRequest } from '../types';
 export const paymentsRouter = Router();
 
 const initiateSchema = z.object({
-  orderId: z.string().uuid(),
+  orderId: z.string().min(1),
   method: z.enum(['INSTANT_EFT', 'ACCOUNT_TO_ACCOUNT']),
 });
 
