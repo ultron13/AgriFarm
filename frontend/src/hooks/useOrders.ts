@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { qs } from '@/lib/format';
 import type { Order, OrderStatus } from '@/types';
 
 interface OrdersFilter {
@@ -8,13 +9,9 @@ interface OrdersFilter {
 }
 
 export function useOrders(filter: OrdersFilter = {}) {
-  const params = new URLSearchParams();
-  if (filter.status) params.set('status', filter.status);
-  if (filter.source) params.set('source', filter.source);
-  const qs = params.toString();
   return useQuery({
     queryKey: ['orders', filter],
-    queryFn: () => api.get<Order[]>(`/orders${qs ? `?${qs}` : ''}`),
+    queryFn: () => api.get<Order[]>(`/orders${qs(filter)}`),
   });
 }
 

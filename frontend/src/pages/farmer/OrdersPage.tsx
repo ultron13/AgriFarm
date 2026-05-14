@@ -6,7 +6,8 @@ import {
 import { useOrders, useOrder } from '@/hooks/useOrders';
 import { usePayouts } from '@/hooks/usePayouts';
 import { OrderStatusBadge } from '@/components/orders/OrderStatusBadge';
-import type { Order, OrderStatus } from '@/types';
+import { farmGateTotal } from '@/lib/format';
+import type { OrderStatus } from '@/types';
 
 const COMMISSION_RATE = 0.05;
 
@@ -28,10 +29,6 @@ const DELIVERY_STEPS: { status: OrderStatus; label: string; Icon: typeof CheckCi
 ];
 
 const STATUS_ORDER: OrderStatus[] = ['PENDING', 'CONFIRMED', 'QUALITY_CHECKED', 'IN_TRANSIT', 'AT_HUB', 'OUT_FOR_DELIVERY', 'DELIVERED', 'DISPUTED', 'CANCELLED', 'REFUNDED'];
-
-function farmGateTotal(order: Order): number {
-  return order.items.reduce((s, i) => s + Number(i.farmGatePrice) * Number(i.quantityKg), 0);
-}
 
 // ── Detail panel ─────────────────────────────────────────────────────────────
 function FarmerOrderDetail({ orderId, payoutsByOrder, onClose }: {
@@ -192,8 +189,8 @@ export function FarmerOrdersPage() {
 
   const payoutsByOrder: Record<string, { netAmount: number; status: string; scheduledFor: string }> = {};
   payoutsData?.data?.forEach((p) => {
-    if ((p as any).orderId) {
-      payoutsByOrder[(p as any).orderId] = { netAmount: Number(p.netAmount), status: p.status, scheduledFor: p.scheduledFor };
+    if (p.orderId) {
+      payoutsByOrder[p.orderId] = { netAmount: Number(p.netAmount), status: p.status, scheduledFor: p.scheduledFor };
     }
   });
 

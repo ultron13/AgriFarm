@@ -8,6 +8,7 @@ import { usePayouts } from '@/hooks/usePayouts';
 import { useOrders } from '@/hooks/useOrders';
 import { OrderStatusBadge } from '@/components/orders/OrderStatusBadge';
 import { Badge } from '@/components/ui/Badge';
+import { farmGateTotal } from '@/lib/format';
 import type { PayoutStatus } from '@/types';
 
 const PAYOUT_BADGE: Record<PayoutStatus, { label: string; variant: 'green' | 'yellow' | 'blue' | 'red' | 'gray' }> = {
@@ -105,7 +106,7 @@ export function FarmerDashboardPage() {
                 {recentOrders.map((order) => {
                   const firstItem = order.items[0];
                   const totalKg = order.items.reduce((s, i) => s + Number(i.quantityKg), 0);
-                  const farmGate = order.items.reduce((s, i) => s + Number(i.farmGatePrice) * Number(i.quantityKg), 0);
+                  const farmGate = farmGateTotal(order);
                   return (
                     <div key={order.id} className="flex items-center gap-3 px-5 py-3.5">
                       <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">

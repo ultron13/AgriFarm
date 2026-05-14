@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { qs } from '@/lib/format';
 import type { LogisticsRoute, Delivery } from '@/types';
 
 export function useRoutes() {
@@ -10,10 +11,9 @@ export function useRoutes() {
 }
 
 export function useDeliveries(routeId: string | null, date?: string) {
-  const params = date ? `?date=${date}` : '';
   return useQuery({
     queryKey: ['deliveries', routeId, date],
-    queryFn: () => api.get<Delivery[]>(`/logistics/routes/${routeId}/deliveries${params}`),
+    queryFn: () => api.get<Delivery[]>(`/logistics/routes/${routeId}/deliveries${qs({ date })}`),
     enabled: !!routeId,
   });
 }

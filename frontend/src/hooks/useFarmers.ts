@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { qs } from '@/lib/format';
 import type { FarmerProfile } from '@/types';
 
 interface FarmersFilter {
@@ -7,12 +8,9 @@ interface FarmersFilter {
 }
 
 export function useFarmers(filter: FarmersFilter = {}) {
-  const params = new URLSearchParams();
-  if (filter.province) params.set('province', filter.province);
-  const qs = params.toString();
   return useQuery({
     queryKey: ['farmers', filter],
-    queryFn: () => api.get<FarmerProfile[]>(`/farmers${qs ? `?${qs}` : ''}`),
+    queryFn: () => api.get<FarmerProfile[]>(`/farmers${qs(filter)}`),
   });
 }
 

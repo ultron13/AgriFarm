@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { qs } from '@/lib/format';
 import type { Listing, CreateListingInput } from '@/types';
 
 interface ListingsQuery {
@@ -10,15 +11,9 @@ interface ListingsQuery {
 }
 
 export function useListings(query: ListingsQuery = {}) {
-  const params = new URLSearchParams();
-  if (query.productId) params.set('productId', query.productId);
-  if (query.province) params.set('province', query.province);
-  if (query.minKg) params.set('minKg', String(query.minKg));
-  if (query.page) params.set('page', String(query.page));
-
   return useQuery({
     queryKey: ['listings', query],
-    queryFn: () => api.get<Listing[]>(`/listings?${params.toString()}`),
+    queryFn: () => api.get<Listing[]>(`/listings${qs(query)}`),
   });
 }
 
