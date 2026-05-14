@@ -201,7 +201,7 @@ model Farmer {
   district       String
   gpsLat         Decimal?      @db.Decimal(10, 7)
   gpsLng         Decimal?      @db.Decimal(10, 7)
-  bankAccountRef String?       // PSP-tokenised reference; never the raw account number
+  bankAccountRef String? // PSP-tokenised reference; never the raw account number
   isSmallholder  Boolean       @default(false)
   ficaVerified   Boolean       @default(false)
   createdAt      DateTime      @default(now())
@@ -257,15 +257,15 @@ model Address {
 }
 
 model Document {
-  id             String       @id @default(uuid())
+  id             String        @id @default(uuid())
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
-  type           String       // "FICA_ID", "BBBEE_CERT", "BANK_PROOF", "TAX_CLEARANCE"
-  r2Key          String       // Cloudflare R2 object key
+  type           String // "FICA_ID", "BBBEE_CERT", "BANK_PROOF", "TAX_CLEARANCE"
+  r2Key          String // Cloudflare R2 object key
   filename       String
   verifiedAt     DateTime?
   verifiedById   String?
-  createdAt      DateTime     @default(now())
+  createdAt      DateTime      @default(now())
 }
 
 model Product {
@@ -280,14 +280,14 @@ model Product {
 }
 
 model ProduceGrade {
-  id          String  @id @default(uuid())
-  productId   String
-  product     Product @relation(fields: [productId], references: [id])
-  grade       QualityGrade
-  description String
-  minSizeG    Int?
-  maxSizeG    Int?
-  maxBlemishPct Decimal? @db.Decimal(5, 2)
+  id            String       @id @default(uuid())
+  productId     String
+  product       Product      @relation(fields: [productId], references: [id])
+  grade         QualityGrade
+  description   String
+  minSizeG      Int?
+  maxSizeG      Int?
+  maxBlemishPct Decimal?     @db.Decimal(5, 2)
 
   listings ProduceListing[]
 }
@@ -302,7 +302,7 @@ model ProduceListing {
   grade          ProduceGrade? @relation(fields: [gradeId], references: [id])
   farmGatePrice  Decimal       @db.Decimal(10, 2)
   availableKg    Decimal       @db.Decimal(10, 2)
-  minimumOrderKg Decimal       @db.Decimal(10, 2) @default(50)
+  minimumOrderKg Decimal       @default(50) @db.Decimal(10, 2)
   availableFrom  DateTime
   availableUntil DateTime
   status         ListingStatus @default(ACTIVE)
@@ -338,8 +338,8 @@ model Order {
   deliveryWindowStart  DateTime?
   deliveryWindowEnd    DateTime?
   totalFarmGateValue   Decimal     @db.Decimal(12, 2)
-  buyerCommissionRate  Decimal     @db.Decimal(5, 4) @default(0.08)
-  sellerCommissionRate Decimal     @db.Decimal(5, 4) @default(0.05)
+  buyerCommissionRate  Decimal     @default(0.08) @db.Decimal(5, 4)
+  sellerCommissionRate Decimal     @default(0.05) @db.Decimal(5, 4)
   logisticsCharge      Decimal     @db.Decimal(12, 2)
   deliveredPrice       Decimal     @db.Decimal(12, 2)
   paymentTermDays      Int         @default(7)
@@ -384,7 +384,7 @@ model QualityCheck {
   fieldAgent   User         @relation(fields: [fieldAgentId], references: [id])
   gradeAwarded QualityGrade
   quantityKg   Decimal      @db.Decimal(10, 2)
-  rejectedKg   Decimal      @db.Decimal(10, 2) @default(0)
+  rejectedKg   Decimal      @default(0) @db.Decimal(10, 2)
   notes        String?
   performedAt  DateTime
   createdAt    DateTime     @default(now())
@@ -402,23 +402,23 @@ model QualityCheckPhoto {
 }
 
 model LogisticsRoute {
-  id             String    @id @default(uuid())
+  id             String   @id @default(uuid())
   name           String
   corridor       Corridor
-  departureTime  String    // "04:00"
+  departureTime  String // "04:00"
   estimatedHours Int
-  isActive       Boolean   @default(true)
+  isActive       Boolean  @default(true)
 
   deliveries Delivery[]
 }
 
 model Delivery {
-  id              String         @id @default(uuid())
-  orderId         String         @unique
-  order           Order          @relation(fields: [orderId], references: [id])
+  id              String          @id @default(uuid())
+  orderId         String          @unique
+  order           Order           @relation(fields: [orderId], references: [id])
   routeId         String?
   route           LogisticsRoute? @relation(fields: [routeId], references: [id])
-  status          DeliveryStatus @default(SCHEDULED)
+  status          DeliveryStatus  @default(SCHEDULED)
   vehicleRef      String?
   driverName      String?
   driverPhone     String?
@@ -426,9 +426,9 @@ model Delivery {
   hubArrivalAt    DateTime?
   deliveredAt     DateTime?
   trackingUrl     String?
-  proofOfDelivery String?        // R2 photo URL
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  proofOfDelivery String? // R2 photo URL
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   @@index([status])
 }

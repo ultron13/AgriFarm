@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { verifyWebhookSignature as verifyOzow } from '../lib/ozow';
 import { verifyWebhookSignature as verifyStitch } from '../lib/stitch';
+import { WhatsAppService } from '../services/whatsapp.service';
 import { logger } from '../lib/logger';
 
 export const webhooksRouter = Router();
@@ -59,8 +60,27 @@ webhooksRouter.post('/stitch', async (req: Request, res: Response) => {
   }
 });
 
+// Clickatell inbound MO webhook — Clickatell sends { moMessage: { from, content, ... } }
 webhooksRouter.post('/whatsapp', async (req: Request, res: Response) => {
-  res.sendStatus(200);
-  // WhatsApp inbound order flow handled by conversation state machine (Phase 1.2)
-  logger.info({ body: req.body }, 'WhatsApp inbound message received');
+  res.sendStatus(200); // Acknowledge immediately
+
+  try {
+    const payload = typeof req.body === 'string' || Buffer.isBuffer(req.body)
+      ? JSON.parse(req.body.toString())
+      : req.body;
+
+    const mo = payload?.moMessage ?? payload?.data;
+    const phone: string = mo?.from ?? payload?.from ?? '';
+    const text: string = mo?.content ?? mo?.text ?? payload?.text ?? '';
+
+    if (!phone || !text) {
+      logger.warn({ payload }, 'WhatsApp webhook missing phone or text');
+      return;
+    }
+
+    const reply = await WhatsAppService.handleIncoming(phone, text);
+    logger.info({ phone, text, reply }, 'WhatsApp message processed');
+  } catch (e) {
+    logger.error({ err: e }, 'WhatsApp webhook processing error');
+  }
 });

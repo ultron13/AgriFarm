@@ -14,6 +14,7 @@ import { ReportsPage } from '@/pages/admin/ReportsPage';
 import { QualityCheckPage } from '@/pages/field-agent/QualityCheckPage';
 import { LogisticsPage } from '@/pages/logistics/LogisticsPage';
 import { SalesRepPage } from '@/pages/sales/SalesRepPage';
+import { WhatsAppSimulatorPage } from '@/pages/sales/WhatsAppSimulatorPage';
 
 const ROLE_HOME: Record<string, string> = {
   FARMER: '/dashboard', BUYER: '/browse', FIELD_AGENT: '/quality',
@@ -51,6 +52,7 @@ export default function App() {
         <Route path="/quality" element={<QualityCheckPage />} />
         <Route path="/logistics" element={<LogisticsPage />} />
         <Route path="/sales" element={<SalesRepPage />} />
+        <Route path="/whatsapp" element={<WhatsAppSimulatorPage />} />
         <Route path="/" element={<DefaultRedirect />} />
       </Route>
     </Routes>
