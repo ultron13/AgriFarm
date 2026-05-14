@@ -16,6 +16,7 @@ import { payoutsRouter } from './routes/payouts.routes';
 import { invoicesRouter } from './routes/invoices.routes';
 import { reportsRouter } from './routes/reports.routes';
 import { webhooksRouter } from './routes/webhooks.routes';
+import { productsRouter } from './routes/products.routes';
 
 export function createApp() {
   const app = express();
@@ -30,6 +31,7 @@ export function createApp() {
 
   app.get('/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
 
+  app.use('/api/v1/products', productsRouter);
   app.use('/api/v1/auth', authRouter);
   app.use('/api/v1/farmers', farmersRouter);
   app.use('/api/v1/listings', listingsRouter);

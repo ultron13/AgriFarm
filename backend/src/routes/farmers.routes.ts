@@ -35,6 +35,28 @@ farmersRouter.get('/', authenticate, requireRole(['ADMIN', 'SUPER_ADMIN', 'SALES
   }
 });
 
+farmersRouter.get('/me/listings', authenticate, requireRole(['FARMER']), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const farmer = await prisma.farmer.findUnique({ where: { userId: req.user.sub } });
+    if (!farmer) { res.status(404).json(err('NOT_FOUND', 'Farmer profile not found')); return; }
+
+    const { skip, take, page, perPage } = paginate(req.query);
+    const [listings, total] = await Promise.all([
+      prisma.produceListing.findMany({
+        where: { farmerId: farmer.id, deletedAt: null },
+        skip,
+        take,
+        include: { product: true, grade: true, photos: { take: 1 } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.produceListing.count({ where: { farmerId: farmer.id, deletedAt: null } }),
+    ]);
+    res.json(ok(listings, { page, perPage, total }));
+  } catch (e) {
+    next(e);
+  }
+});
+
 farmersRouter.get('/:id', authenticate, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const farmer = await prisma.farmer.findUnique({

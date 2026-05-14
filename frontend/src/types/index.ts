@@ -29,6 +29,26 @@ export interface Product {
   unitType: string;
 }
 
+export interface ProduceGrade {
+  id: string;
+  grade: string;
+  description: string;
+}
+
+export interface ProductWithGrades extends Product {
+  grades: ProduceGrade[];
+}
+
+export interface CreateListingInput {
+  productId: string;
+  gradeId?: string;
+  farmGatePrice: number;
+  availableKg: number;
+  minimumOrderKg: number;
+  availableFrom: string;
+  availableUntil: string;
+}
+
 export interface Farmer {
   id: string;
   displayName: string;

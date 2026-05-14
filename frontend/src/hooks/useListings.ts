@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Listing } from '@/types';
+import type { Listing, CreateListingInput } from '@/types';
 
 interface ListingsQuery {
   productId?: string;
@@ -22,10 +22,20 @@ export function useListings(query: ListingsQuery = {}) {
   });
 }
 
+export function useMyListings() {
+  return useQuery({
+    queryKey: ['my-listings'],
+    queryFn: () => api.get<Listing[]>('/farmers/me/listings'),
+  });
+}
+
 export function useCreateListing() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<Listing>) => api.post<Listing>('/listings', data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['listings'] }),
+    mutationFn: (data: CreateListingInput) => api.post<Listing>('/listings', data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['listings'] });
+      qc.invalidateQueries({ queryKey: ['my-listings'] });
+    },
   });
 }
