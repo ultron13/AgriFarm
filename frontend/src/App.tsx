@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
+import { useAuth } from '@/hooks/useAuth';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { BrowsePage } from '@/pages/buyer/BrowsePage';
@@ -12,6 +13,18 @@ import { ReportsPage } from '@/pages/admin/ReportsPage';
 import { QualityCheckPage } from '@/pages/field-agent/QualityCheckPage';
 import { LogisticsPage } from '@/pages/logistics/LogisticsPage';
 import { SalesRepPage } from '@/pages/sales/SalesRepPage';
+
+const ROLE_HOME: Record<string, string> = {
+  FARMER: '/dashboard', BUYER: '/browse', FIELD_AGENT: '/quality',
+  LOGISTICS_COORDINATOR: '/logistics', SALES_REP: '/sales',
+  ADMIN: '/orders', SUPER_ADMIN: '/orders',
+};
+
+function DefaultRedirect() {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  return <Navigate to={ROLE_HOME[user.role] ?? '/browse'} replace />;
+}
 
 export default function App() {
   return (
@@ -30,7 +43,7 @@ export default function App() {
         <Route path="/quality" element={<QualityCheckPage />} />
         <Route path="/logistics" element={<LogisticsPage />} />
         <Route path="/sales" element={<SalesRepPage />} />
-        <Route path="/" element={<Navigate to="/browse" replace />} />
+        <Route path="/" element={<DefaultRedirect />} />
       </Route>
     </Routes>
   );

@@ -3,7 +3,7 @@ import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth';
 import {
   ShoppingBasket, PackageCheck, Sprout, Wallet, ClipboardCheck,
-  Truck, BarChart3, LogOut, Leaf, Users, type LucideIcon,
+  Truck, BarChart3, LogOut, Leaf, Users, LayoutDashboard, type LucideIcon,
 } from 'lucide-react';
 
 interface NavItem {
@@ -14,10 +14,11 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { to: '/browse',   label: 'Browse Produce', Icon: ShoppingBasket,  roles: ['BUYER', 'ADMIN', 'SUPER_ADMIN'] },
-  { to: '/orders',   label: 'Orders',          Icon: PackageCheck,    roles: ['BUYER', 'FARMER', 'ADMIN', 'SUPER_ADMIN', 'LOGISTICS_COORDINATOR'] },
-  { to: '/listings', label: 'My Listings',     Icon: Sprout,          roles: ['FARMER', 'ADMIN', 'SUPER_ADMIN'] },
-  { to: '/payouts',  label: 'Payouts',          Icon: Wallet,          roles: ['FARMER', 'ADMIN', 'SUPER_ADMIN'] },
+  { to: '/dashboard',label: 'Dashboard',       Icon: LayoutDashboard, roles: ['FARMER'] },
+  { to: '/browse',   label: 'Browse Produce',  Icon: ShoppingBasket,  roles: ['BUYER', 'ADMIN', 'SUPER_ADMIN'] },
+  { to: '/orders',   label: 'Orders',           Icon: PackageCheck,    roles: ['BUYER', 'FARMER', 'ADMIN', 'SUPER_ADMIN', 'LOGISTICS_COORDINATOR'] },
+  { to: '/listings', label: 'My Listings',      Icon: Sprout,          roles: ['FARMER', 'ADMIN', 'SUPER_ADMIN'] },
+  { to: '/payouts',  label: 'Payouts',           Icon: Wallet,          roles: ['FARMER', 'ADMIN', 'SUPER_ADMIN'] },
   { to: '/sales',    label: 'My Farmers',       Icon: Users,           roles: ['SALES_REP', 'ADMIN', 'SUPER_ADMIN'] },
   { to: '/quality',  label: 'Quality Checks',  Icon: ClipboardCheck,  roles: ['FIELD_AGENT', 'ADMIN', 'SUPER_ADMIN'] },
   { to: '/logistics',label: 'Logistics',        Icon: Truck,           roles: ['LOGISTICS_COORDINATOR', 'ADMIN', 'SUPER_ADMIN'] },
