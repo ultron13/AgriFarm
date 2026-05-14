@@ -3,7 +3,7 @@ import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth';
 import {
   ShoppingBasket, PackageCheck, Sprout, Wallet, ClipboardCheck,
-  Truck, BarChart3, LogOut, Leaf, Users, LayoutDashboard, MessageCircle, type LucideIcon,
+  Truck, BarChart3, LogOut, Leaf, Users, LayoutDashboard, MessageCircle, Landmark, FileText, type LucideIcon,
 } from 'lucide-react';
 
 interface NavItem {
@@ -24,6 +24,8 @@ const NAV: NavItem[] = [
   { to: '/logistics',label: 'Logistics',        Icon: Truck,           roles: ['LOGISTICS_COORDINATOR', 'ADMIN', 'SUPER_ADMIN'] },
   { to: '/reports',  label: 'Reports',          Icon: BarChart3,       roles: ['ADMIN', 'SUPER_ADMIN'] },
   { to: '/whatsapp', label: 'WhatsApp Orders',  Icon: MessageCircle,   roles: ['SALES_REP', 'ADMIN', 'SUPER_ADMIN'] },
+  { to: '/gov',      label: 'Procurement Portal', Icon: Landmark,      roles: ['GOV_BUYER', 'ADMIN', 'SUPER_ADMIN'] },
+  { to: '/tenders',  label: 'Gov Tenders',       Icon: FileText,       roles: ['FARMER', 'ADMIN', 'SUPER_ADMIN'] },
 ];
 
 export function Sidebar() {

@@ -18,6 +18,7 @@ import { reportsRouter } from './routes/reports.routes';
 import { webhooksRouter } from './routes/webhooks.routes';
 import { productsRouter } from './routes/products.routes';
 import { whatsappRouter } from './routes/whatsapp.routes';
+import { tendersRouter } from './routes/tenders.routes';
 
 export function createApp() {
   const app = express();
@@ -45,6 +46,7 @@ export function createApp() {
   app.use('/api/v1/reports', reportsRouter);
   app.use('/api/v1/webhooks', webhooksRouter);
   app.use('/api/v1/whatsapp', whatsappRouter);
+  app.use('/api/v1/tenders', tendersRouter);
 
   app.use(errorHandler);
 

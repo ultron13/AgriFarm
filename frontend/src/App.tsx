@@ -16,11 +16,13 @@ import { LogisticsPage } from '@/pages/logistics/LogisticsPage';
 import { SalesRepPage } from '@/pages/sales/SalesRepPage';
 import { WhatsAppSimulatorPage } from '@/pages/sales/WhatsAppSimulatorPage';
 import { MockOzowPage } from '@/pages/buyer/MockOzowPage';
+import { GovPortalPage } from '@/pages/gov/GovPortalPage';
+import { FarmerTendersPage } from '@/pages/farmer/TendersPage';
 
 const ROLE_HOME: Record<string, string> = {
-  FARMER: '/dashboard', BUYER: '/browse', FIELD_AGENT: '/quality',
-  LOGISTICS_COORDINATOR: '/logistics', SALES_REP: '/sales',
-  ADMIN: '/orders', SUPER_ADMIN: '/orders',
+  FARMER: '/dashboard', BUYER: '/browse', GOV_BUYER: '/gov',
+  FIELD_AGENT: '/quality', LOGISTICS_COORDINATOR: '/logistics',
+  SALES_REP: '/sales', ADMIN: '/orders', SUPER_ADMIN: '/orders',
 };
 
 function OrdersPage() {
@@ -55,6 +57,8 @@ export default function App() {
         <Route path="/logistics" element={<LogisticsPage />} />
         <Route path="/sales" element={<SalesRepPage />} />
         <Route path="/whatsapp" element={<WhatsAppSimulatorPage />} />
+        <Route path="/gov" element={<GovPortalPage />} />
+        <Route path="/tenders" element={<FarmerTendersPage />} />
         <Route path="/" element={<DefaultRedirect />} />
       </Route>
     </Routes>

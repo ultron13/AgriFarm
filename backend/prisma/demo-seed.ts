@@ -388,6 +388,162 @@ async function main() {
   await prisma.user.upsert({ where: { email: 'logistics@demo.farmconnect.co.za' }, update: {}, create: { email: 'logistics@demo.farmconnect.co.za', passwordHash: pw, role: 'LOGISTICS_COORDINATOR' } });
 
   // ════════════════════════════════════════════════════════════════════════════
+  // GOVERNMENT BUYERS + TENDERS (B2G)
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // ── Dept of Basic Education (School Feeding Programme) ─────────────────────
+  const dbeOrg = await prisma.organization.upsert({ where: { id: 'org-dbe' }, update: {}, create: { id: 'org-dbe', name: 'Department of Basic Education', type: OrgType.GOVERNMENT, registrationNumber: 'GOV/DBE/001' } });
+  const dbeAddr = await prisma.address.upsert({ where: { id: 'addr-dbe' }, update: {}, create: { id: 'addr-dbe', organizationId: dbeOrg.id, line1: '222 Struben St', suburb: 'Arcadia', city: 'Pretoria', province: Province.GAUTENG, postalCode: '0002', gpsLat: -25.747, gpsLng: 28.188 } });
+  const dbeUser = await prisma.user.upsert({ where: { email: 'dbe@demo.farmconnect.co.za' }, update: {}, create: { email: 'dbe@demo.farmconnect.co.za', passwordHash: pw, role: 'GOV_BUYER' } });
+  const dbeBuyer = await prisma.buyer.upsert({ where: { userId: dbeUser.id }, update: {}, create: { userId: dbeUser.id, organizationId: dbeOrg.id, displayName: 'DBE Procurement Office', buyerType: BuyerType.GOVERNMENT_SCHOOL, deliveryAddressId: dbeAddr.id, ficaVerified: true, preferredPaymentTerms: 30 } });
+
+  // ── Dept of Health ─────────────────────────────────────────────────────────
+  const dohOrg = await prisma.organization.upsert({ where: { id: 'org-doh' }, update: {}, create: { id: 'org-doh', name: 'Department of Health — Gauteng', type: OrgType.GOVERNMENT, registrationNumber: 'GOV/DOH/GP/001' } });
+  const dohAddr = await prisma.address.upsert({ where: { id: 'addr-doh' }, update: {}, create: { id: 'addr-doh', organizationId: dohOrg.id, line1: '37 Sauer St', suburb: 'Marshalltown', city: 'Johannesburg', province: Province.GAUTENG, postalCode: '2001', gpsLat: -26.203, gpsLng: 28.045 } });
+  const dohUser = await prisma.user.upsert({ where: { email: 'doh@demo.farmconnect.co.za' }, update: {}, create: { email: 'doh@demo.farmconnect.co.za', passwordHash: pw, role: 'GOV_BUYER' } });
+  const dohBuyer = await prisma.buyer.upsert({ where: { userId: dohUser.id }, update: {}, create: { userId: dohUser.id, organizationId: dohOrg.id, displayName: 'DoH Gauteng Nutrition Services', buyerType: BuyerType.GOVERNMENT_HOSPITAL, deliveryAddressId: dohAddr.id, ficaVerified: true, preferredPaymentTerms: 30 } });
+
+  // ── Dept of Correctional Services ─────────────────────────────────────────
+  const dcsOrg = await prisma.organization.upsert({ where: { id: 'org-dcs' }, update: {}, create: { id: 'org-dcs', name: 'Department of Correctional Services', type: OrgType.GOVERNMENT, registrationNumber: 'GOV/DCS/001' } });
+  const dcsAddr = await prisma.address.upsert({ where: { id: 'addr-dcs' }, update: {}, create: { id: 'addr-dcs', organizationId: dcsOrg.id, line1: '124 WF Nkomo St', suburb: 'Pretoria West', city: 'Pretoria', province: Province.GAUTENG, postalCode: '0001', gpsLat: -25.762, gpsLng: 28.148 } });
+  const dcsUser = await prisma.user.upsert({ where: { email: 'dcs@demo.farmconnect.co.za' }, update: {}, create: { email: 'dcs@demo.farmconnect.co.za', passwordHash: pw, role: 'GOV_BUYER' } });
+  const dcsBuyer = await prisma.buyer.upsert({ where: { userId: dcsUser.id }, update: {}, create: { userId: dcsUser.id, organizationId: dcsOrg.id, displayName: 'DCS Central Catering', buyerType: BuyerType.GOVERNMENT_CORRECTIONAL, deliveryAddressId: dcsAddr.id, ficaVerified: true, preferredPaymentTerms: 30 } });
+
+  // ── Demo tenders ────────────────────────────────────────────────────────────
+  const tClose1 = new Date(); tClose1.setDate(tClose1.getDate() + 14);
+  const tClose2 = new Date(); tClose2.setDate(tClose2.getDate() + 7);
+  const tClose3 = new Date(); tClose3.setDate(tClose3.getDate() + 21);
+  const tClose4 = new Date(); tClose4.setDate(tClose4.getDate() + 5);
+  const tDeliv1 = new Date(); tDeliv1.setDate(tDeliv1.getDate() + 45);
+  const tDeliv2 = new Date(); tDeliv2.setDate(tDeliv2.getDate() + 30);
+  const tDeliv3 = new Date(); tDeliv3.setDate(tDeliv3.getDate() + 60);
+
+  const t1 = await prisma.tender.upsert({ where: { referenceNumber: 'TND-2026-0001' }, update: {}, create: {
+    referenceNumber: 'TND-2026-0001', buyerId: dbeBuyer.id,
+    title: 'School Nutrition Programme — Term 3 Tomatoes',
+    description: 'Supply of fresh round tomatoes for the National School Nutrition Programme across 48 Gauteng schools for Term 3 (July–September 2026). Tomatoes must be Grade B or higher, delivered weekly in 10 kg crates. Smallholder cooperatives are encouraged to apply.',
+    department: 'Department of Basic Education',
+    productCategory: 'VEGETABLES',
+    quantityKg: 5000, deliveryDate: tDeliv1, deliveryProvince: Province.GAUTENG,
+    deliveryAddress: 'FarmConnect Hub, 14 Industrial Rd, Germiston, Gauteng',
+    budgetPerKg: 4.50, closingDate: tClose1, status: 'OPEN',
+    requiresBbbee: true, requiresHaccp: false, requiresTaxClear: true,
+    notes: 'Preference will be given to Level 1–4 B-BBEE suppliers and smallholder cooperatives.',
+  }});
+
+  const t2 = await prisma.tender.upsert({ where: { referenceNumber: 'TND-2026-0002' }, update: {}, create: {
+    referenceNumber: 'TND-2026-0002', buyerId: dbeBuyer.id,
+    title: 'School Nutrition Programme — Term 3 Potatoes',
+    description: 'Supply of washed table potatoes (minimum 60mm diameter) for school kitchens across Ekurhuleni district. Delivery to 3 central collection points. Fortnightly delivery schedule.',
+    department: 'Department of Basic Education',
+    productCategory: 'VEGETABLES',
+    quantityKg: 3000, deliveryDate: tDeliv1, deliveryProvince: Province.GAUTENG,
+    deliveryAddress: 'FarmConnect Hub, 14 Industrial Rd, Germiston, Gauteng',
+    budgetPerKg: 3.80, closingDate: tClose2, status: 'OPEN',
+    requiresBbbee: true, requiresHaccp: false, requiresTaxClear: true,
+  }});
+
+  const t3 = await prisma.tender.upsert({ where: { referenceNumber: 'TND-2026-0003' }, update: {}, create: {
+    referenceNumber: 'TND-2026-0003', buyerId: dohBuyer.id,
+    title: 'Hospital Nutrition Services — Mixed Vegetable Basket Q3',
+    description: 'Quarterly supply of mixed fresh vegetables for patient nutrition at Charlotte Maxeke Academic Hospital and 4 district hospitals. Basket includes: cabbage, carrots, onions, spinach, and butternut. HACCP certification required.',
+    department: 'Department of Health — Gauteng',
+    productCategory: 'VEGETABLES',
+    quantityKg: 8000, deliveryDate: tDeliv2, deliveryProvince: Province.GAUTENG,
+    deliveryAddress: 'Charlotte Maxeke Academic Hospital, Jubilee Rd, Parktown',
+    budgetPerKg: 7.50, closingDate: tClose1, status: 'EVALUATION',
+    requiresBbbee: true, requiresHaccp: true, requiresTaxClear: true,
+    notes: 'HACCP or ISO 22000 certification is mandatory. Proof of cold-chain capability required.',
+  }});
+
+  const t4 = await prisma.tender.upsert({ where: { referenceNumber: 'TND-2026-0004' }, update: {}, create: {
+    referenceNumber: 'TND-2026-0004', buyerId: dcsBuyer.id,
+    title: 'DCS Central Kitchen — Citrus Supply H2 2026',
+    description: 'Supply of Valencia oranges for inmate nutrition across 6 correctional facilities in Gauteng for the second half of 2026. Monthly delivery required. Supplier must be able to maintain consistent supply volume.',
+    department: 'Department of Correctional Services',
+    productCategory: 'FRUIT',
+    quantityKg: 6000, deliveryDate: tDeliv3, deliveryProvince: Province.GAUTENG,
+    deliveryAddress: 'Kgosi Mampuru II Correctional Centre, Pretoria',
+    budgetPerKg: 4.00, closingDate: tClose3, status: 'OPEN',
+    requiresBbbee: true, requiresHaccp: false, requiresTaxClear: true,
+    notes: 'Minimum commitment of 500 kg per monthly delivery. Volume discounts welcomed.',
+  }});
+
+  const t5 = await prisma.tender.upsert({ where: { referenceNumber: 'TND-2026-0005' }, update: {}, create: {
+    referenceNumber: 'TND-2026-0005', buyerId: dohBuyer.id,
+    title: 'Hospital Fresh Fruit Initiative — Avocados & Bananas',
+    description: 'Supply of Hass avocados and Cavendish bananas for patient nutrition programme at 3 Johannesburg hospitals. Preference for smallholder suppliers from KwaZulu-Natal and Mpumalanga.',
+    department: 'Department of Health — Gauteng',
+    productCategory: 'FRUIT',
+    quantityKg: 2000, deliveryDate: tDeliv2, deliveryProvince: Province.GAUTENG,
+    deliveryAddress: 'Helen Joseph Hospital, Perth Rd, Auckland Park, JHB',
+    budgetPerKg: 16.00, closingDate: tClose4, status: 'OPEN',
+    requiresBbbee: true, requiresHaccp: false, requiresTaxClear: true,
+  }});
+
+  // ── Demo bids ───────────────────────────────────────────────────────────────
+  const mkBid = (type: string, label: string, farmerId: string) => ({
+    type, label, url: `mock://compliance/${farmerId}/${type.toLowerCase()}`, uploadedAt: new Date().toISOString(), verified: true,
+  });
+
+  // Tender 1 — tomatoes: 2 bids (mahela SHORTLISTED, mog SUBMITTED)
+  await prisma.tenderBid.upsert({ where: { tenderId_farmerId: { tenderId: t1.id, farmerId: farmers['mahela'].id } }, update: {}, create: {
+    tenderId: t1.id, farmerId: farmers['mahela'].id,
+    pricePerKg: 4.20, quantityKg: 5000, status: 'SHORTLISTED', evaluatedAt: new Date(),
+    notes: 'Grade B certified. Can deliver in 10 kg crates. Weekly harvest schedule aligns with programme.',
+    complianceDocs: [mkBid('BBBEE_CERTIFICATE', 'B-BBEE Level 2 Certificate (Valid to Dec 2026)', farmers['mahela'].id), mkBid('TAX_CLEARANCE', 'SARS Tax Clearance — Good Standing', farmers['mahela'].id), mkBid('COMPANY_REGISTRATION', 'CIPC Registration Certificate', farmers['mahela'].id)],
+    submittedAt: new Date(Date.now() - 5 * 86400000),
+  }});
+  await prisma.tenderBid.upsert({ where: { tenderId_farmerId: { tenderId: t1.id, farmerId: farmers['mog'].id } }, update: {}, create: {
+    tenderId: t1.id, farmerId: farmers['mog'].id,
+    pricePerKg: 4.35, quantityKg: 4000, status: 'SUBMITTED',
+    notes: 'Smallholder cooperative, 12 members. B-BBEE Level 1. Limited to 4,000 kg but flexible on delivery schedule.',
+    complianceDocs: [mkBid('BBBEE_CERTIFICATE', 'B-BBEE Level 1 Certificate', farmers['mog'].id), mkBid('TAX_CLEARANCE', 'SARS Tax Clearance', farmers['mog'].id)],
+    submittedAt: new Date(Date.now() - 3 * 86400000),
+  }});
+
+  // Tender 2 — potatoes: 1 bid (freestate SUBMITTED)
+  await prisma.tenderBid.upsert({ where: { tenderId_farmerId: { tenderId: t2.id, farmerId: farmers['freestate'].id } }, update: {}, create: {
+    tenderId: t2.id, farmerId: farmers['freestate'].id,
+    pricePerKg: 3.60, quantityKg: 3000, status: 'SUBMITTED',
+    notes: 'Washed and graded at source. Cold storage on-site. Fortnightly delivery confirmed.',
+    complianceDocs: [mkBid('BBBEE_CERTIFICATE', 'B-BBEE Level 3 Certificate', farmers['freestate'].id), mkBid('TAX_CLEARANCE', 'SARS Tax Clearance', farmers['freestate'].id)],
+    submittedAt: new Date(Date.now() - 2 * 86400000),
+  }});
+
+  // Tender 3 — mixed veg EVALUATION: 3 bids (mog SHORTLISTED, freestate SUBMITTED, brits REJECTED)
+  await prisma.tenderBid.upsert({ where: { tenderId_farmerId: { tenderId: t3.id, farmerId: farmers['mog'].id } }, update: {}, create: {
+    tenderId: t3.id, farmerId: farmers['mog'].id,
+    pricePerKg: 6.80, quantityKg: 8000, status: 'SHORTLISTED', evaluatedAt: new Date(Date.now() - 86400000),
+    notes: 'Cooperative can supply full basket: cabbage, carrots, onions, spinach, butternut. ISO 22000 pending.',
+    complianceDocs: [mkBid('BBBEE_CERTIFICATE', 'B-BBEE Level 1 Certificate', farmers['mog'].id), mkBid('TAX_CLEARANCE', 'SARS Tax Clearance', farmers['mog'].id), mkBid('HACCP_CERTIFICATE', 'ISO 22000:2018 Certification (Pending)', farmers['mog'].id)],
+    submittedAt: new Date(Date.now() - 7 * 86400000),
+  }});
+  await prisma.tenderBid.upsert({ where: { tenderId_farmerId: { tenderId: t3.id, farmerId: farmers['freestate'].id } }, update: {}, create: {
+    tenderId: t3.id, farmerId: farmers['freestate'].id,
+    pricePerKg: 7.20, quantityKg: 6000, status: 'SUBMITTED',
+    notes: 'Can supply all items except spinach. Partnering with Cullinan cooperative for spinach component.',
+    complianceDocs: [mkBid('BBBEE_CERTIFICATE', 'B-BBEE Level 3 Certificate', farmers['freestate'].id), mkBid('TAX_CLEARANCE', 'SARS Tax Clearance', farmers['freestate'].id), mkBid('HACCP_CERTIFICATE', 'HACCP Certification (Food Safety Initiative)', farmers['freestate'].id)],
+    submittedAt: new Date(Date.now() - 6 * 86400000),
+  }});
+  await prisma.tenderBid.upsert({ where: { tenderId_farmerId: { tenderId: t3.id, farmerId: farmers['brits'].id } }, update: {}, create: {
+    tenderId: t3.id, farmerId: farmers['brits'].id,
+    pricePerKg: 7.90, quantityKg: 5000, status: 'REJECTED', evaluatedAt: new Date(Date.now() - 86400000),
+    notes: 'Price above budget threshold.',
+    complianceDocs: [mkBid('BBBEE_CERTIFICATE', 'B-BBEE Level 4 Certificate', farmers['brits'].id), mkBid('TAX_CLEARANCE', 'SARS Tax Clearance', farmers['brits'].id)],
+    submittedAt: new Date(Date.now() - 8 * 86400000),
+  }});
+
+  // Tender 5 — avocados/bananas: 1 bid (natal SUBMITTED)
+  await prisma.tenderBid.upsert({ where: { tenderId_farmerId: { tenderId: t5.id, farmerId: farmers['natal'].id } }, update: {}, create: {
+    tenderId: t5.id, farmerId: farmers['natal'].id,
+    pricePerKg: 14.50, quantityKg: 2000, status: 'SUBMITTED',
+    notes: 'Supply split: 1,200 kg Hass avocados, 800 kg Cavendish bananas. Midlands smallholder cooperative. Can increase volume with 2 weeks notice.',
+    complianceDocs: [mkBid('BBBEE_CERTIFICATE', 'B-BBEE Level 2 Certificate', farmers['natal'].id), mkBid('TAX_CLEARANCE', 'SARS Tax Clearance', farmers['natal'].id)],
+    submittedAt: new Date(Date.now() - 1 * 86400000),
+  }});
+
+  // ════════════════════════════════════════════════════════════════════════════
   // SUMMARY
   // ════════════════════════════════════════════════════════════════════════════
   console.log('Demo seed complete ✓');
@@ -407,6 +563,8 @@ async function main() {
   console.log('');
   console.log('  Listings:   52 active across all 9 provinces');
   console.log('  Buyer:      buyer@demo.farmconnect.co.za');
+  console.log('  Gov Buyers: dbe@demo (School Feeding), doh@demo (Health), dcs@demo (Correctional)');
+  console.log('  Tenders:    5 (3 OPEN, 1 EVALUATION, 1 OPEN with no bids)');
   console.log('  Orders:     3 demo orders (delivered / at-hub / confirmed)');
 }
 

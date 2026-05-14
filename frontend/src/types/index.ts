@@ -1,4 +1,4 @@
-export type UserRole = 'FARMER' | 'BUYER' | 'FIELD_AGENT' | 'LOGISTICS_COORDINATOR' | 'SALES_REP' | 'ADMIN' | 'SUPER_ADMIN';
+export type UserRole = 'FARMER' | 'BUYER' | 'GOV_BUYER' | 'FIELD_AGENT' | 'LOGISTICS_COORDINATOR' | 'SALES_REP' | 'ADMIN' | 'SUPER_ADMIN';
 
 export type OrderStatus =
   | 'PENDING' | 'CONFIRMED' | 'QUALITY_CHECKED' | 'IN_TRANSIT'
@@ -179,6 +179,68 @@ export interface Delivery {
   deliveredAt: string | null;
   trackingUrl: string | null;
   order: DeliveryOrder;
+}
+
+// ─── Government / B2G ────────────────────────────────────────────────────────
+
+export type TenderStatus = 'OPEN' | 'EVALUATION' | 'AWARDED' | 'CANCELLED';
+export type BidStatus = 'SUBMITTED' | 'SHORTLISTED' | 'AWARDED' | 'REJECTED';
+
+export interface ComplianceDoc {
+  type: string;
+  label: string;
+  url: string;
+  uploadedAt: string;
+  verified: boolean;
+}
+
+export interface TenderBid {
+  id: string;
+  tenderId: string;
+  farmerId: string;
+  pricePerKg: number;
+  quantityKg: number;
+  notes: string | null;
+  status: BidStatus;
+  complianceDocs: ComplianceDoc[];
+  submittedAt: string;
+  evaluatedAt: string | null;
+  farmer: {
+    id: string;
+    displayName: string;
+    province: string;
+    district: string;
+    isSmallholder: boolean;
+    organization: { name: string; bbeeeLevel: number | null } | null;
+  };
+}
+
+export interface Tender {
+  id: string;
+  referenceNumber: string;
+  title: string;
+  description: string;
+  department: string;
+  productCategory: string;
+  quantityKg: number;
+  deliveryDate: string;
+  deliveryProvince: string;
+  deliveryAddress: string;
+  budgetPerKg: number | null;
+  status: TenderStatus;
+  closingDate: string;
+  requiresBbbee: boolean;
+  requiresHaccp: boolean;
+  requiresTaxClear: boolean;
+  awardedBidId: string | null;
+  notes: string | null;
+  createdAt: string;
+  buyer: {
+    displayName: string;
+    organization: { name: string } | null;
+  };
+  bids: TenderBid[];
+  _count: { bids: number };
 }
 
 export interface Payout {
