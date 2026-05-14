@@ -1,15 +1,33 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Order } from '@/types';
+import type { Order, OrderStatus } from '@/types';
 
-export function useOrders() {
+interface OrdersFilter {
+  status?: string;
+  source?: string;
+}
+
+export function useOrders(filter: OrdersFilter = {}) {
+  const params = new URLSearchParams();
+  if (filter.status) params.set('status', filter.status);
+  if (filter.source) params.set('source', filter.source);
+  const qs = params.toString();
   return useQuery({
-    queryKey: ['orders'],
-    queryFn: () => api.get<Order[]>('/orders'),
+    queryKey: ['orders', filter],
+    queryFn: () => api.get<Order[]>(`/orders${qs ? `?${qs}` : ''}`),
   });
 }
 
-export function useOrder(id: string) {
+export function useUpdateOrderStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: OrderStatus }) =>
+      api.patch<Order>(`/orders/${id}/status`, { status }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['orders'] }),
+  });
+}
+
+export function useOrder(id: string | null) {
   return useQuery({
     queryKey: ['orders', id],
     queryFn: () => api.get<Order>(`/orders/${id}`),

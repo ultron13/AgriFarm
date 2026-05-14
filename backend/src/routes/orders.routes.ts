@@ -25,6 +25,8 @@ ordersRouter.get('/', authenticate, async (req: AuthenticatedRequest, res: Respo
   try {
     const { skip, take, page, perPage } = paginate(req.query);
     const role = req.user.role;
+    const statusFilter = req.query.status as string | undefined;
+    const sourceFilter = req.query.source as string | undefined;
 
     const where: Record<string, unknown> = { deletedAt: null };
 
@@ -36,12 +38,20 @@ ordersRouter.get('/', authenticate, async (req: AuthenticatedRequest, res: Respo
       where['items'] = { some: { listing: { farmerId: farmer?.id } } };
     }
 
+    if (statusFilter) where['status'] = statusFilter;
+    if (sourceFilter) where['source'] = sourceFilter;
+
     const [orders, total] = await Promise.all([
       prisma.order.findMany({
         where,
         skip,
         take,
-        include: { items: { include: { listing: { include: { product: true } } } }, delivery: true, payment: true },
+        include: {
+          buyer: { select: { displayName: true, buyerType: true } },
+          items: { include: { listing: { include: { product: true } } } },
+          delivery: { select: { status: true, driverName: true, vehicleRef: true } },
+          payment: true,
+        },
         orderBy: { createdAt: 'desc' },
       }),
       prisma.order.count({ where }),
@@ -100,6 +110,31 @@ ordersRouter.post(
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const order = await OrderService.confirmDelivery(req.params.id);
+      res.json(ok(order));
+    } catch (e) {
+      next(e);
+    }
+  }
+);
+
+const VALID_STATUSES = ['PENDING', 'CONFIRMED', 'QUALITY_CHECKED', 'IN_TRANSIT', 'AT_HUB', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
+
+ordersRouter.patch(
+  '/:id/status',
+  authenticate,
+  requireRole(['ADMIN', 'SUPER_ADMIN']),
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const { status } = req.body as { status: string };
+      if (!VALID_STATUSES.includes(status)) {
+        res.status(400).json(err('INVALID_STATUS', 'Invalid status value'));
+        return;
+      }
+      const order = await prisma.order.update({
+        where: { id: req.params.id },
+        data: { status: status as never },
+        include: { buyer: { select: { displayName: true, buyerType: true } }, items: { include: { listing: { include: { product: true } } } }, delivery: true, payment: true },
+      });
       res.json(ok(order));
     } catch (e) {
       next(e);
