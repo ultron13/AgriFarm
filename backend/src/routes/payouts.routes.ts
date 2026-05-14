@@ -20,7 +20,13 @@ payoutsRouter.get('/', authenticate, async (req: AuthenticatedRequest, res: Resp
 
     const where = { ...(farmerId && { farmerId }), ...(req.query.status && { status: req.query.status as never }) };
     const [payouts, total] = await Promise.all([
-      prisma.payout.findMany({ where, skip, take, orderBy: { scheduledFor: 'desc' } }),
+      prisma.payout.findMany({
+        where, skip, take,
+        orderBy: { scheduledFor: 'desc' },
+        include: {
+          order: { select: { orderNumber: true, buyer: { select: { displayName: true } } } },
+        },
+      }),
       prisma.payout.count({ where }),
     ]);
     res.json(ok(payouts, { page, perPage, total }));

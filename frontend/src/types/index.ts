@@ -189,4 +189,5 @@ export interface Payout {
   status: PayoutStatus;
   scheduledFor: string;
   paidAt: string | null;
+  order?: { orderNumber: string; buyer: { displayName: string } };
 }
