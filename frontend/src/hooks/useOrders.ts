@@ -45,6 +45,6 @@ export function useConfirmDelivery() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (orderId: string) => api.post<Order>(`/orders/${orderId}/confirm-delivery`, {}),
-    onSuccess: (_data, orderId) => qc.invalidateQueries({ queryKey: ['orders', orderId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['orders'] }),
   });
 }

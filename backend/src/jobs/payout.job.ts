@@ -24,13 +24,20 @@ export function startPayoutWorker() {
 
       await prisma.payout.update({ where: { id: payoutId }, data: { status: 'PROCESSING' } });
 
-      const pspRef = await initiatePayout({
-        reference: payout.id,
-        amount: Number(payout.netAmount),
-        currency: 'ZAR',
-        beneficiaryAccountRef: payout.farmer.bankAccountRef ?? '',
-        beneficiaryName: payout.farmer.displayName,
-      });
+      let pspRef: string;
+      if (!process.env.STITCH_CLIENT_ID) {
+        // Mock mode: no real Stitch credentials — simulate instant settlement
+        pspRef = `MOCK-${payout.id.slice(0, 8).toUpperCase()}`;
+        logger.info({ payoutId, pspRef }, 'Mock payout (no Stitch credentials)');
+      } else {
+        pspRef = await initiatePayout({
+          reference: payout.id,
+          amount: Number(payout.netAmount),
+          currency: 'ZAR',
+          beneficiaryAccountRef: payout.farmer.bankAccountRef ?? '',
+          beneficiaryName: payout.farmer.displayName,
+        });
+      }
 
       await prisma.payout.update({
         where: { id: payoutId },

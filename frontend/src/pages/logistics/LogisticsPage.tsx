@@ -7,7 +7,6 @@ import { useRoutes, useDeliveries, useUpdateDelivery } from '@/hooks/useLogistic
 import { Button } from '@/components/ui/Button';
 import type { Delivery, DeliveryStatus } from '@/types';
 
-const today = new Date().toISOString().split('T')[0];
 
 const STATUS_META: Record<DeliveryStatus, { label: string; color: string; next: DeliveryStatus | null; action: string | null }> = {
   SCHEDULED:        { label: 'Scheduled',        color: 'bg-gray-100 text-gray-600',    next: 'COLLECTED',        action: 'Mark Collected' },

@@ -107,6 +107,7 @@ export interface Order {
   deliveryDate: string;
   deliveredPrice: number;
   paymentDueDate: string;
+  paymentTermDays?: number;
   source: string;
   items: OrderItem[];
   buyer?: { displayName: string; buyerType?: string };

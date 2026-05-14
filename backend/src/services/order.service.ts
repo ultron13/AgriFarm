@@ -95,12 +95,20 @@ export const OrderService = {
       include: { items: { include: { listing: { include: { farmer: true } } } }, buyer: true },
     });
 
+    if (['DELIVERED', 'CANCELLED', 'REFUNDED', 'DISPUTED'].includes(order.status)) {
+      throw Object.assign(new Error('Order cannot be confirmed in its current state'), { statusCode: 400, code: 'INVALID_STATE' });
+    }
+
     const updated = await prisma.order.update({
       where: { id: orderId },
       data: { status: 'DELIVERED' },
     });
 
-    // Schedule 48-hour payouts per farmer
+    // In dev/mock mode payouts process in 5 seconds; in production use 48 hours
+    const IS_MOCK = process.env.NODE_ENV !== 'production';
+    const payoutDelay = IS_MOCK ? 5_000 : 48 * 60 * 60 * 1000;
+    const scheduledFor = new Date(Date.now() + (IS_MOCK ? 0 : 48 * 60 * 60 * 1000));
+
     const farmerPayouts = new Map<string, { farmerId: string; gross: number }>();
     for (const item of order.items) {
       const farmerId = item.listing.farmerId;
@@ -112,17 +120,9 @@ export const OrderService = {
     for (const [, { farmerId, gross }] of farmerPayouts) {
       const commission = gross * SELLER_COMMISSION;
       const payout = await prisma.payout.create({
-        data: {
-          orderId,
-          farmerId,
-          grossAmount: gross,
-          commission,
-          netAmount: gross - commission,
-          scheduledFor: new Date(Date.now() + 48 * 60 * 60 * 1000),
-        },
+        data: { orderId, farmerId, grossAmount: gross, commission, netAmount: gross - commission, scheduledFor },
       });
-
-      await payoutsQueue.add('process_payout', { payoutId: payout.id }, { delay: 48 * 60 * 60 * 1000 });
+      await payoutsQueue.add('process_payout', { payoutId: payout.id }, { delay: payoutDelay });
     }
 
     await invoicesQueue.add('generate_invoice', { invoiceId: '', orderId });
