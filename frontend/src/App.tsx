@@ -5,6 +5,7 @@ import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { BrowsePage } from '@/pages/buyer/BrowsePage';
 import { BuyerOrdersPage } from '@/pages/buyer/OrdersPage';
+import { FarmerOrdersPage } from '@/pages/farmer/OrdersPage';
 import { FarmerDashboardPage } from '@/pages/farmer/DashboardPage';
 import { FarmerListingsPage } from '@/pages/farmer/ListingsPage';
 import { FarmerPayoutsPage } from '@/pages/farmer/PayoutsPage';
@@ -20,6 +21,12 @@ const ROLE_HOME: Record<string, string> = {
   ADMIN: '/orders', SUPER_ADMIN: '/orders',
 };
 
+function OrdersPage() {
+  const { user } = useAuth();
+  if (user?.role === 'FARMER') return <FarmerOrdersPage />;
+  return <BuyerOrdersPage />;
+}
+
 function DefaultRedirect() {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
@@ -34,7 +41,7 @@ export default function App() {
 
       <Route element={<AppShell />}>
         <Route path="/browse" element={<BrowsePage />} />
-        <Route path="/orders" element={<BuyerOrdersPage />} />
+        <Route path="/orders" element={<OrdersPage />} />
         <Route path="/dashboard" element={<FarmerDashboardPage />} />
         <Route path="/listings" element={<FarmerListingsPage />} />
         <Route path="/payouts" element={<FarmerPayoutsPage />} />

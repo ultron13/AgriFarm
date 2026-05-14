@@ -91,6 +91,15 @@ export interface OrderItem {
   listing: Listing;
 }
 
+export interface QualityCheckResult {
+  id: string;
+  gradeAwarded: QualityGrade;
+  quantityKg: number;
+  rejectedKg: number;
+  notes: string | null;
+  performedAt: string;
+}
+
 export interface Order {
   id: string;
   orderNumber: string;
@@ -103,6 +112,7 @@ export interface Order {
   buyer?: { displayName: string; buyerType?: string };
   delivery?: { status: DeliveryStatus; driverName: string | null; vehicleRef: string | null };
   payment?: { status: PaymentStatus };
+  qualityChecks?: QualityCheckResult[];
   createdAt: string;
 }
 
@@ -172,6 +182,7 @@ export interface Delivery {
 
 export interface Payout {
   id: string;
+  orderId: string;
   grossAmount: number;
   commission: number;
   netAmount: number;
