@@ -11,7 +11,7 @@ vi.mock('../lib/prisma', () => ({
     payout: { create: vi.fn(), updateMany: vi.fn(), findUnique: vi.fn() },
     complianceDoc: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), upsert: vi.fn() },
     produceListing: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
-    order: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+    order: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), aggregate: vi.fn() },
     invoice: { findUnique: vi.fn(), update: vi.fn() },
     product: { findMany: vi.fn(), findUnique: vi.fn() },
   },

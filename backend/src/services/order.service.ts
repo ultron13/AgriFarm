@@ -24,6 +24,21 @@ export const OrderService = {
       )
     );
 
+    // Validate minimum order quantities per listing before touching totals
+    for (let i = 0; i < input.items.length; i++) {
+      const qty = new Prisma.Decimal(input.items[i].quantityKg);
+      const listing = listings[i];
+      if (qty.lt(listing.minimumOrderKg)) {
+        throw Object.assign(
+          new Error(
+            `Minimum order for ${listing.product.name} is ${listing.minimumOrderKg} kg ` +
+            `(you ordered ${input.items[i].quantityKg} kg)`
+          ),
+          { statusCode: 422, code: 'BELOW_MINIMUM_ORDER' }
+        );
+      }
+    }
+
     let totalFarmGateValue = new Prisma.Decimal(0);
     let totalKg = new Prisma.Decimal(0);
     const lineItems = input.items.map((item, idx) => {
@@ -44,6 +59,24 @@ export const OrderService = {
     const orderNumber = `FC-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
 
     const buyer = await prisma.buyer.findUniqueOrThrow({ where: { id: buyerId } });
+
+    // Enforce credit limit when one is configured on the buyer profile
+    if (buyer.creditLimit !== null) {
+      const { _sum } = await prisma.order.aggregate({
+        where: { buyerId, status: { notIn: ['CANCELLED', 'REFUNDED'] }, deletedAt: null },
+        _sum: { deliveredPrice: true },
+      });
+      const outstanding = _sum.deliveredPrice ?? new Prisma.Decimal(0);
+      if (outstanding.add(deliveredPrice).gt(buyer.creditLimit)) {
+        throw Object.assign(
+          new Error(
+            `Order total of R${deliveredPrice.toFixed(2)} would exceed your credit limit of R${buyer.creditLimit.toFixed(2)}`
+          ),
+          { statusCode: 409, code: 'CREDIT_LIMIT_EXCEEDED' }
+        );
+      }
+    }
+
     const paymentDueDate = new Date(input.deliveryDate);
     paymentDueDate.setDate(paymentDueDate.getDate() + buyer.preferredPaymentTerms);
 
