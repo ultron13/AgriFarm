@@ -18,6 +18,38 @@ const createCheckSchema = z.object({
   photos: z.array(z.string()).min(3, 'Minimum 3 photos required'),
 });
 
+qualityRouter.get(
+  '/pending',
+  authenticate,
+  requireRole(['FIELD_AGENT', 'ADMIN', 'SUPER_ADMIN']),
+  async (_req, res: Response, next: NextFunction) => {
+    try {
+      const orders = await prisma.order.findMany({
+        where: { status: { in: ['PENDING', 'CONFIRMED'] } },
+        include: {
+          buyer: { select: { displayName: true } },
+          items: {
+            include: {
+              listing: {
+                include: {
+                  product: true,
+                  farmer: { select: { id: true, displayName: true, province: true } },
+                },
+              },
+            },
+          },
+          qualityChecks: { select: { id: true } },
+        },
+        orderBy: { deliveryDate: 'asc' },
+        take: 30,
+      });
+      res.json(ok(orders));
+    } catch (e) {
+      next(e);
+    }
+  }
+);
+
 qualityRouter.post(
   '/',
   authenticate,

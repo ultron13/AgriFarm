@@ -92,6 +92,27 @@ export interface Order {
   createdAt: string;
 }
 
+export type QualityGrade = 'A' | 'B' | 'C' | 'REJECTED';
+
+export interface PendingOrderItem {
+  id: string;
+  quantityKg: number;
+  listing: {
+    product: { name: string };
+    farmer: { id: string; displayName: string; province: string };
+  };
+}
+
+export interface PendingOrder {
+  id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  deliveryDate: string;
+  buyer: { displayName: string };
+  items: PendingOrderItem[];
+  qualityChecks: { id: string }[];
+}
+
 export type DeliveryStatus =
   | 'SCHEDULED' | 'COLLECTED' | 'AT_HUB' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'FAILED' | 'RETURNED';
 
