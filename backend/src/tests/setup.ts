@@ -8,6 +8,7 @@ vi.mock('../lib/prisma', () => ({
     buyer: { findUnique: vi.fn() },
     tender: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), count: vi.fn() },
     tenderBid: { create: vi.fn(), update: vi.fn() },
+    complianceDoc: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), upsert: vi.fn() },
     produceListing: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
     order: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     invoice: { findUnique: vi.fn(), update: vi.fn() },

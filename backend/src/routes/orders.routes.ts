@@ -32,10 +32,12 @@ ordersRouter.get('/', authenticate, async (req: AuthenticatedRequest, res: Respo
 
     if (role === 'BUYER') {
       const buyer = await prisma.buyer.findUnique({ where: { userId: req.user.sub } });
-      where['buyerId'] = buyer?.id;
+      if (!buyer) { res.status(404).json(err('NOT_FOUND', 'Buyer profile not found')); return; }
+      where['buyerId'] = buyer.id;
     } else if (role === 'FARMER') {
       const farmer = await prisma.farmer.findUnique({ where: { userId: req.user.sub } });
-      where['items'] = { some: { listing: { farmerId: farmer?.id } } };
+      if (!farmer) { res.status(404).json(err('NOT_FOUND', 'Farmer profile not found')); return; }
+      where['items'] = { some: { listing: { farmerId: farmer.id } } };
     }
 
     if (statusFilter) where['status'] = statusFilter;

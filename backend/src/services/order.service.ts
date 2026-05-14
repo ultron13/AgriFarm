@@ -1,9 +1,10 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { payoutsQueue, notificationsQueue, invoicesQueue } from '../jobs/queues';
 
-const LOGISTICS_COST_PER_KG = 4.5;
-const BUYER_COMMISSION = 0.08;
-const SELLER_COMMISSION = 0.05;
+const LOGISTICS_COST_PER_KG = new Prisma.Decimal('4.5');
+const BUYER_COMMISSION = new Prisma.Decimal('0.08');
+const SELLER_COMMISSION = new Prisma.Decimal('0.05');
 
 interface CreateOrderInput {
   items: Array<{ listingId: string; quantityKg: number }>;
@@ -23,19 +24,19 @@ export const OrderService = {
       )
     );
 
-    let totalFarmGateValue = 0;
-    let totalKg = 0;
+    let totalFarmGateValue = new Prisma.Decimal(0);
+    let totalKg = new Prisma.Decimal(0);
     const lineItems = input.items.map((item, idx) => {
       const listing = listings[idx];
-      const farmGateValue = Number(listing.farmGatePrice) * item.quantityKg;
-      totalFarmGateValue += farmGateValue;
-      totalKg += item.quantityKg;
-      return { ...item, farmGatePrice: Number(listing.farmGatePrice) };
+      const qty = new Prisma.Decimal(item.quantityKg);
+      totalFarmGateValue = totalFarmGateValue.add(listing.farmGatePrice.mul(qty));
+      totalKg = totalKg.add(qty);
+      return { listingId: item.listingId, quantityKg: item.quantityKg, qty, farmGatePrice: listing.farmGatePrice };
     });
 
-    const logisticsCharge = LOGISTICS_COST_PER_KG * totalKg;
-    const buyerCommission = totalFarmGateValue * BUYER_COMMISSION;
-    const deliveredPrice = totalFarmGateValue + logisticsCharge + buyerCommission;
+    const logisticsCharge = LOGISTICS_COST_PER_KG.mul(totalKg);
+    const buyerCommission = totalFarmGateValue.mul(BUYER_COMMISSION);
+    const deliveredPrice = totalFarmGateValue.add(logisticsCharge).add(buyerCommission);
 
     const orderNumber = `FC-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
 
@@ -63,22 +64,29 @@ export const OrderService = {
               listingId: item.listingId,
               quantityKg: item.quantityKg,
               farmGatePrice: item.farmGatePrice,
-              deliveredPrice: (item.farmGatePrice + LOGISTICS_COST_PER_KG) * (1 + BUYER_COMMISSION),
+              deliveredPrice: item.farmGatePrice
+                .add(LOGISTICS_COST_PER_KG)
+                .mul(new Prisma.Decimal(1).add(BUYER_COMMISSION)),
             })),
           },
         },
         include: { items: true },
       });
 
-      // Reserve listing capacity
+      // Atomic check-and-decrement — prevents oversell under concurrent orders
       for (const item of lineItems) {
-        await tx.produceListing.update({
-          where: { id: item.listingId },
+        const updated = await tx.produceListing.updateMany({
+          where: { id: item.listingId, availableKg: { gte: item.quantityKg } },
           data: { availableKg: { decrement: item.quantityKg } },
         });
+        if (updated.count === 0) {
+          throw Object.assign(
+            new Error(`Insufficient stock for listing ${item.listingId}`),
+            { statusCode: 409, code: 'INSUFFICIENT_STOCK' }
+          );
+        }
       }
 
-      // Create invoice record (PDF generated async by worker)
       const inv = await tx.invoice.create({
         data: {
           invoiceNumber,
@@ -87,8 +95,8 @@ export const OrderService = {
           lineItems: lineItems.map((item, idx) => ({
             name: listings[idx].product.name,
             quantityKg: item.quantityKg,
-            farmGatePrice: item.farmGatePrice,
-            amount: item.farmGatePrice * item.quantityKg,
+            farmGatePrice: item.farmGatePrice.toFixed(4),
+            amount: item.farmGatePrice.mul(item.qty).toFixed(2),
           })),
           subtotal: deliveredPrice,
           vatAmount: 0,
@@ -127,23 +135,23 @@ export const OrderService = {
       data: { status: 'DELIVERED' },
     });
 
-    // In dev/mock mode payouts process in 5 seconds; in production use 48 hours
     const IS_MOCK = process.env.NODE_ENV !== 'production';
     const payoutDelay = IS_MOCK ? 5_000 : 48 * 60 * 60 * 1000;
     const scheduledFor = new Date(Date.now() + (IS_MOCK ? 0 : 48 * 60 * 60 * 1000));
 
-    const farmerPayouts = new Map<string, { farmerId: string; gross: number }>();
+    const farmerPayouts = new Map<string, { farmerId: string; gross: Prisma.Decimal }>();
     for (const item of order.items) {
       const farmerId = item.listing.farmerId;
-      const gross = Number(item.farmGatePrice) * Number(item.quantityKg);
+      // Both fields are Prisma.Decimal from the DB — no Number() conversion needed
+      const gross = item.farmGatePrice.mul(item.quantityKg);
       const existing = farmerPayouts.get(farmerId);
-      farmerPayouts.set(farmerId, { farmerId, gross: (existing?.gross ?? 0) + gross });
+      farmerPayouts.set(farmerId, { farmerId, gross: existing ? existing.gross.add(gross) : gross });
     }
 
     for (const [, { farmerId, gross }] of farmerPayouts) {
-      const commission = gross * SELLER_COMMISSION;
+      const commission = gross.mul(SELLER_COMMISSION);
       const payout = await prisma.payout.create({
-        data: { orderId, farmerId, grossAmount: gross, commission, netAmount: gross - commission, scheduledFor },
+        data: { orderId, farmerId, grossAmount: gross, commission, netAmount: gross.sub(commission), scheduledFor },
       });
       await payoutsQueue.add('process_payout', { payoutId: payout.id }, { delay: payoutDelay });
     }

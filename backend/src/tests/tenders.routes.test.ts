@@ -9,6 +9,7 @@ const mockTender = vi.mocked(prisma.tender);
 const mockBid = vi.mocked(prisma.tenderBid);
 const mockBuyer = vi.mocked(prisma.buyer);
 const mockFarmer = vi.mocked(prisma.farmer);
+const mockComplianceDoc = vi.mocked(prisma.complianceDoc);
 
 const govToken = authHeader('gov-user', 'GOV_BUYER');
 const farmerToken = authHeader('farmer-user', 'FARMER');
@@ -101,6 +102,7 @@ describe('POST /api/v1/tenders/:id/bids', () => {
   it('creates bid for open tender', async () => {
     mockTender.findUnique.mockResolvedValue({ id: 't1', status: 'OPEN' } as any);
     mockFarmer.findUnique.mockResolvedValue({ id: 'f1' } as any);
+    mockComplianceDoc.findMany.mockResolvedValue([]);
     mockBid.create.mockResolvedValue({ id: 'bid-1' } as any);
     const res = await request(app).post('/api/v1/tenders/t1/bids').set(farmerToken).send(validBid);
     expect(res.status).toBe(201);

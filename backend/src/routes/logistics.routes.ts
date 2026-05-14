@@ -3,6 +3,7 @@ import { authenticate } from '../middleware/authenticate';
 import { requireRole } from '../middleware/requireRole';
 import { prisma } from '../lib/prisma';
 import { ok, err } from '../types';
+import { OrderService } from '../services/order.service';
 
 export const logisticsRouter = Router();
 
@@ -44,7 +45,7 @@ logisticsRouter.patch('/deliveries/:id', authenticate, requireRole(['ADMIN', 'SU
     const delivery = await prisma.delivery.update({ where: { id: req.params.id }, data: req.body });
 
     if (req.body.status === 'DELIVERED') {
-      await prisma.order.update({ where: { id: delivery.orderId }, data: { status: 'DELIVERED' } });
+      await OrderService.confirmDelivery(delivery.orderId);
     }
 
     res.json(ok(delivery));
