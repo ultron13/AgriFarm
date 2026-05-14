@@ -2,9 +2,33 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
 import { prisma } from '../lib/prisma';
 import { validateBody } from '../middleware/validate';
 import { ok, err } from '../types';
+
+const rateLimitResponse = (code: string, message: string) =>
+  (_req: Request, res: Response) => res.status(429).json(err(code, message));
+
+const skipInTest = () => process.env.NODE_ENV === 'test';
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.AUTH_RATE_LIMIT_MAX ?? '10'),
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  skip: skipInTest,
+  handler: rateLimitResponse('RATE_LIMITED', 'Too many login attempts, please try again in 15 minutes'),
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: Number(process.env.REGISTER_RATE_LIMIT_MAX ?? '5'),
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  skip: skipInTest,
+  handler: rateLimitResponse('RATE_LIMITED', 'Too many registration attempts, please try again later'),
+});
 
 export const authRouter = Router();
 
@@ -24,7 +48,7 @@ const loginSchema = z.object({
   password: z.string(),
 });
 
-authRouter.post('/register', validateBody(registerSchema), async (req: Request, res: Response, next: NextFunction) => {
+authRouter.post('/register', registerLimiter, validateBody(registerSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, phone, password, role } = req.body as z.infer<typeof registerSchema>;
 
@@ -44,7 +68,7 @@ authRouter.post('/register', validateBody(registerSchema), async (req: Request, 
   }
 });
 
-authRouter.post('/login', validateBody(loginSchema), async (req: Request, res: Response, next: NextFunction) => {
+authRouter.post('/login', loginLimiter, validateBody(loginSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password } = req.body as z.infer<typeof loginSchema>;
     const user = await prisma.user.findUnique({ where: { email } });

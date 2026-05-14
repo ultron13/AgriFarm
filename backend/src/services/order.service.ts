@@ -35,8 +35,11 @@ export const OrderService = {
     });
 
     const logisticsCharge = LOGISTICS_COST_PER_KG.mul(totalKg);
-    const buyerCommission = totalFarmGateValue.mul(BUYER_COMMISSION);
-    const deliveredPrice = totalFarmGateValue.add(logisticsCharge).add(buyerCommission);
+    // Commission charged on farm-gate + logistics so the take-rate applies to
+    // everything the buyer pays for, matching the per-item formula below.
+    const baseDelivered = totalFarmGateValue.add(logisticsCharge);
+    const buyerCommission = baseDelivered.mul(BUYER_COMMISSION);
+    const deliveredPrice = baseDelivered.add(buyerCommission);
 
     const orderNumber = `FC-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
 
