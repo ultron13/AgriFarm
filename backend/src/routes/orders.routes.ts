@@ -1,0 +1,108 @@
+import { Router, Response, NextFunction } from 'express';
+import { z } from 'zod';
+import { authenticate } from '../middleware/authenticate';
+import { requireRole } from '../middleware/requireRole';
+import { validateBody } from '../middleware/validate';
+import { prisma } from '../lib/prisma';
+import { ok, err, paginate, AuthenticatedRequest } from '../types';
+import { OrderService } from '../services/order.service';
+
+export const ordersRouter = Router();
+
+const orderItemSchema = z.object({
+  listingId: z.string().uuid(),
+  quantityKg: z.number().positive(),
+});
+
+const createOrderSchema = z.object({
+  items: z.array(orderItemSchema).min(1),
+  deliveryDate: z.string().datetime(),
+  notes: z.string().optional(),
+  source: z.enum(['WEB', 'WHATSAPP', 'FIELD_AGENT', 'API']).default('WEB'),
+});
+
+ordersRouter.get('/', authenticate, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { skip, take, page, perPage } = paginate(req.query);
+    const role = req.user.role;
+
+    const where: Record<string, unknown> = { deletedAt: null };
+
+    if (role === 'BUYER') {
+      const buyer = await prisma.buyer.findUnique({ where: { userId: req.user.sub } });
+      where['buyerId'] = buyer?.id;
+    } else if (role === 'FARMER') {
+      const farmer = await prisma.farmer.findUnique({ where: { userId: req.user.sub } });
+      where['items'] = { some: { listing: { farmerId: farmer?.id } } };
+    }
+
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        skip,
+        take,
+        include: { items: { include: { listing: { include: { product: true } } } }, delivery: true, payment: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.order.count({ where }),
+    ]);
+
+    res.json(ok(orders, { page, perPage, total }));
+  } catch (e) {
+    next(e);
+  }
+});
+
+ordersRouter.get('/:id', authenticate, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: req.params.id },
+      include: { items: { include: { listing: { include: { product: true, farmer: true } } } }, delivery: true, payment: true, invoice: true, qualityChecks: { include: { photos: true } } },
+    });
+
+    if (!order) {
+      res.status(404).json(err('NOT_FOUND', 'Order not found'));
+      return;
+    }
+
+    res.json(ok(order));
+  } catch (e) {
+    next(e);
+  }
+});
+
+ordersRouter.post(
+  '/',
+  authenticate,
+  requireRole(['BUYER', 'ADMIN', 'SUPER_ADMIN']),
+  validateBody(createOrderSchema),
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const body = req.body as z.infer<typeof createOrderSchema>;
+      const buyer = await prisma.buyer.findUnique({ where: { userId: req.user.sub } });
+      if (!buyer) {
+        res.status(404).json(err('NOT_FOUND', 'Buyer profile not found'));
+        return;
+      }
+
+      const order = await OrderService.createOrder(buyer.id, body);
+      res.status(201).json(ok(order));
+    } catch (e) {
+      next(e);
+    }
+  }
+);
+
+ordersRouter.post(
+  '/:id/confirm-delivery',
+  authenticate,
+  requireRole(['BUYER', 'LOGISTICS_COORDINATOR', 'ADMIN', 'SUPER_ADMIN']),
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const order = await OrderService.confirmDelivery(req.params.id);
+      res.json(ok(order));
+    } catch (e) {
+      next(e);
+    }
+  }
+);
