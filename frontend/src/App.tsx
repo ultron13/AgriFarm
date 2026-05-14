@@ -18,6 +18,8 @@ import { WhatsAppSimulatorPage } from '@/pages/sales/WhatsAppSimulatorPage';
 import { MockOzowPage } from '@/pages/buyer/MockOzowPage';
 import { GovPortalPage } from '@/pages/gov/GovPortalPage';
 import { FarmerTendersPage } from '@/pages/farmer/TendersPage';
+import { CompliancePage } from '@/pages/farmer/CompliancePage';
+import { ComplianceVerifyPage } from '@/pages/admin/ComplianceVerifyPage';
 
 const ROLE_HOME: Record<string, string> = {
   FARMER: '/dashboard', BUYER: '/browse', GOV_BUYER: '/gov',
@@ -59,6 +61,8 @@ export default function App() {
         <Route path="/whatsapp" element={<WhatsAppSimulatorPage />} />
         <Route path="/gov" element={<GovPortalPage />} />
         <Route path="/tenders" element={<FarmerTendersPage />} />
+        <Route path="/compliance" element={<CompliancePage />} />
+        <Route path="/compliance/verify" element={<ComplianceVerifyPage />} />
         <Route path="/" element={<DefaultRedirect />} />
       </Route>
     </Routes>

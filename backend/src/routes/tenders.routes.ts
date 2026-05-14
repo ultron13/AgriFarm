@@ -29,10 +29,6 @@ const submitBidSchema = z.object({
   pricePerKg: z.number().positive(),
   quantityKg: z.number().positive(),
   notes: z.string().optional(),
-  complianceDocs: z.array(z.object({
-    type: z.string(),
-    label: z.string(),
-  })).default([]),
 });
 
 const tenderInclude = {
@@ -147,14 +143,20 @@ tendersRouter.post('/:id/bids', authenticate, requireRole(['FARMER']), validateB
     const farmer = await prisma.farmer.findUnique({ where: { userId: req.user.sub } });
     if (!farmer) { res.status(404).json(err('NOT_FOUND', 'Farmer profile not found')); return; }
 
-    const { complianceDocs, ...rest } = req.body;
-    const docsWithTimestamp = complianceDocs.map((d: { type: string; label: string }) => ({
-      ...d,
-      url: `mock://compliance/${farmer.id}/${d.type.toLowerCase()}`,
-      uploadedAt: new Date().toISOString(),
-      verified: false,
+    // Pull verified compliance docs from the farmer's vault
+    const vaultDocs = await prisma.complianceDoc.findMany({
+      where: { farmerId: farmer.id, status: 'VERIFIED' },
+    });
+    const complianceDocsSnapshot = vaultDocs.map(d => ({
+      type: d.type,
+      label: d.label,
+      url: d.fileUrl,
+      uploadedAt: d.uploadedAt.toISOString(),
+      verified: true,
+      verifiedAt: d.verifiedAt?.toISOString(),
     }));
 
+    const { ...rest } = req.body;
     const bid = await prisma.tenderBid.create({
       data: {
         tenderId: tender.id,
@@ -162,7 +164,7 @@ tendersRouter.post('/:id/bids', authenticate, requireRole(['FARMER']), validateB
         pricePerKg: rest.pricePerKg,
         quantityKg: rest.quantityKg,
         notes: rest.notes,
-        complianceDocs: docsWithTimestamp,
+        complianceDocs: complianceDocsSnapshot,
       },
       include: { farmer: { include: { organization: true } } },
     });

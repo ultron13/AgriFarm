@@ -5,6 +5,7 @@
 import {
   PrismaClient, Province, OrgType, BuyerType, ProductCategory,
   UnitType, QualityGrade, OrderStatus, PaymentStatus, PayoutStatus, DeliveryStatus,
+  ComplianceDocType, ComplianceDocStatus,
 } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
@@ -546,6 +547,54 @@ async function main() {
   // ════════════════════════════════════════════════════════════════════════════
   // SUMMARY
   // ════════════════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════════
+  // COMPLIANCE VAULT — demo docs for key farmers
+  // ════════════════════════════════════════════════════════════════════════════
+  type DocDef = { type: ComplianceDocType; label: string; status: ComplianceDocStatus; expiresAt?: Date; rejectionNote?: string };
+  const mkDoc = (farmerId: string, def: DocDef) => prisma.complianceDoc.upsert({
+    where: { farmerId_type: { farmerId, type: def.type } },
+    update: { status: def.status, verifiedAt: def.status === 'VERIFIED' ? new Date() : null, rejectionNote: def.rejectionNote ?? null },
+    create: {
+      farmerId,
+      type: def.type,
+      label: def.label,
+      fileUrl: `mock://r2/compliance/${farmerId}/${def.type.toLowerCase()}.pdf`,
+      fileKey: `compliance/${farmerId}/${def.type.toLowerCase()}.pdf`,
+      status: def.status,
+      expiresAt: def.expiresAt,
+      uploadedAt: new Date(Date.now() - 7 * 86400000),
+      verifiedAt: def.status === 'VERIFIED' ? new Date(Date.now() - 2 * 86400000) : null,
+      verifiedById: def.status === 'VERIFIED' ? 'admin-seed' : null,
+      rejectionNote: def.rejectionNote,
+    },
+  });
+
+  const mahelaF = farmers['mahela'];
+  const zz2F    = farmers['zz2'];
+  const mogF    = farmers['mog'];
+  const natalF  = farmers['natal'];
+
+  await Promise.all([
+    // Mahela — fully compliant (all 3 required + HACCP)
+    mkDoc(mahelaF.id, { type: ComplianceDocType.BBBEE_CERTIFICATE,    label: 'B-BBEE Level 2 Certificate',          status: ComplianceDocStatus.VERIFIED, expiresAt: new Date('2027-03-31') }),
+    mkDoc(mahelaF.id, { type: ComplianceDocType.TAX_CLEARANCE,        label: 'SARS Tax Clearance PIN',               status: ComplianceDocStatus.VERIFIED, expiresAt: new Date('2026-11-30') }),
+    mkDoc(mahelaF.id, { type: ComplianceDocType.HACCP_CERTIFICATE,    label: 'HACCP Food Safety Certificate',        status: ComplianceDocStatus.VERIFIED, expiresAt: new Date('2027-06-30') }),
+    mkDoc(mahelaF.id, { type: ComplianceDocType.COMPANY_REGISTRATION, label: 'CIPC Registration — Mahela Coop',     status: ComplianceDocStatus.VERIFIED }),
+
+    // ZZ2 — BBBEE verified, tax clearance pending, HACCP rejected
+    mkDoc(zz2F.id, { type: ComplianceDocType.BBBEE_CERTIFICATE, label: 'B-BBEE Level 1 Certificate',   status: ComplianceDocStatus.VERIFIED, expiresAt: new Date('2027-01-31') }),
+    mkDoc(zz2F.id, { type: ComplianceDocType.TAX_CLEARANCE,     label: 'SARS Tax Clearance',            status: ComplianceDocStatus.PENDING }),
+    mkDoc(zz2F.id, { type: ComplianceDocType.HACCP_CERTIFICATE, label: 'HACCP Certification',           status: ComplianceDocStatus.REJECTED, rejectionNote: 'Certificate expired — please upload current version dated after Jan 2026.' }),
+
+    // Mogalakwena — only BBBEE uploaded (pending), tax clearance missing
+    mkDoc(mogF.id, { type: ComplianceDocType.BBBEE_CERTIFICATE, label: 'B-BBEE Level 3 Certificate', status: ComplianceDocStatus.PENDING }),
+
+    // KZN Natal — fully compliant
+    mkDoc(natalF.id, { type: ComplianceDocType.BBBEE_CERTIFICATE,    label: 'B-BBEE Level 2 Certificate',   status: ComplianceDocStatus.VERIFIED, expiresAt: new Date('2027-05-31') }),
+    mkDoc(natalF.id, { type: ComplianceDocType.TAX_CLEARANCE,        label: 'SARS Tax Clearance PIN',        status: ComplianceDocStatus.VERIFIED, expiresAt: new Date('2026-12-31') }),
+    mkDoc(natalF.id, { type: ComplianceDocType.COMPANY_REGISTRATION, label: 'CIPC Registration — uMngeni', status: ComplianceDocStatus.VERIFIED }),
+  ]);
+
   console.log('Demo seed complete ✓');
   console.log('');
   console.log('  Products:   40 (20 vegetables + 20 fruits)');
@@ -566,6 +615,7 @@ async function main() {
   console.log('  Gov Buyers: dbe@demo (School Feeding), doh@demo (Health), dcs@demo (Correctional)');
   console.log('  Tenders:    5 (3 OPEN, 1 EVALUATION, 1 OPEN with no bids)');
   console.log('  Orders:     3 demo orders (delivered / at-hub / confirmed)');
+  console.log('  Compliance: Mahela (fully verified), ZZ2 (mixed), Mog (pending), Natal (verified)');
 }
 
 main().catch(console.error).finally(() => prisma.$disconnect());

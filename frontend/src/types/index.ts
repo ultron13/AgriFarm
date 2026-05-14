@@ -181,6 +181,30 @@ export interface Delivery {
   order: DeliveryOrder;
 }
 
+// ─── Compliance Vault ────────────────────────────────────────────────────────
+
+export type ComplianceDocType =
+  | 'BBBEE_CERTIFICATE' | 'TAX_CLEARANCE' | 'HACCP_CERTIFICATE'
+  | 'FOOD_SAFETY_CERT' | 'COMPANY_REGISTRATION' | 'BANK_LETTER';
+
+export type ComplianceDocStatus = 'PENDING' | 'VERIFIED' | 'REJECTED' | 'EXPIRED';
+
+export interface VaultDoc {
+  id: string;
+  farmerId: string;
+  type: ComplianceDocType;
+  label: string;
+  fileUrl: string;
+  fileKey: string;
+  status: ComplianceDocStatus;
+  expiresAt: string | null;
+  uploadedAt: string;
+  verifiedAt: string | null;
+  verifiedById: string | null;
+  rejectionNote: string | null;
+  farmer?: { displayName: string; province: string };
+}
+
 // ─── Government / B2G ────────────────────────────────────────────────────────
 
 export type TenderStatus = 'OPEN' | 'EVALUATION' | 'AWARDED' | 'CANCELLED';

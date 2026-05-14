@@ -215,10 +215,11 @@ model Farmer {
   updatedAt      DateTime      @updatedAt
   deletedAt      DateTime?
 
-  listings      ProduceListing[]
-  payouts       Payout[]
-  qualityChecks QualityCheck[]
-  tenderBids    TenderBid[]
+  listings        ProduceListing[]
+  payouts         Payout[]
+  qualityChecks   QualityCheck[]
+  tenderBids      TenderBid[]
+  complianceDocs  ComplianceDoc[]
 
   @@index([province])
   @@index([organizationId])
@@ -510,6 +511,44 @@ model AuditLog {
   @@index([resourceType, resourceId])
   @@index([userId])
   @@index([createdAt])
+}
+
+// ─── Farmer Compliance Vault ─────────────────────────────────────────────────
+
+enum ComplianceDocType {
+  BBBEE_CERTIFICATE
+  TAX_CLEARANCE
+  HACCP_CERTIFICATE
+  FOOD_SAFETY_CERT
+  COMPANY_REGISTRATION
+  BANK_LETTER
+}
+
+enum ComplianceDocStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  EXPIRED
+}
+
+model ComplianceDoc {
+  id             String              @id @default(uuid())
+  farmerId       String
+  farmer         Farmer              @relation(fields: [farmerId], references: [id])
+  type           ComplianceDocType
+  label          String
+  fileUrl        String
+  fileKey        String
+  status         ComplianceDocStatus @default(PENDING)
+  expiresAt      DateTime?
+  uploadedAt     DateTime            @default(now())
+  verifiedAt     DateTime?
+  verifiedById   String?
+  rejectionNote  String?
+
+  @@unique([farmerId, type])
+  @@index([farmerId])
+  @@index([status])
 }
 
 // ─── Government / B2G Procurement ────────────────────────────────────────────

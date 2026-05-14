@@ -37,7 +37,7 @@ export function useUpdateTenderStatus() {
 export function useSubmitBid() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ tenderId, ...data }: { tenderId: string; pricePerKg: number; quantityKg: number; notes?: string; complianceDocs: { type: string; label: string }[] }) =>
+    mutationFn: ({ tenderId, ...data }: { tenderId: string; pricePerKg: number; quantityKg: number; notes?: string }) =>
       api.post<TenderBid>(`/tenders/${tenderId}/bids`, data),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['tenders'] });

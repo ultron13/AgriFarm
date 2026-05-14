@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  Landmark, Clock, Scale, ShieldCheck, AlertCircle,
-  CheckCircle2, ChevronRight, Award,
+  Landmark, Clock, Scale, AlertCircle,
+  CheckCircle2, ChevronRight, Award, XCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useTenders, useSubmitBid } from '@/hooks/useTenders';
+import { useMyCompliance } from '@/hooks/useCompliance';
 import type { Tender, TenderStatus } from '@/types';
 
 const STATUS_STYLE: Record<TenderStatus, string> = {
@@ -21,13 +23,11 @@ const DEPT_ICON: Record<string, string> = {
   'Department of Correctional Services': '🔒',
 };
 
-const COMPLIANCE_OPTIONS = [
-  { type: 'BBBEE_CERTIFICATE',   label: 'B-BBEE Certificate',           required: true  },
-  { type: 'TAX_CLEARANCE',       label: 'SARS Tax Clearance',            required: true  },
-  { type: 'HACCP_CERTIFICATE',   label: 'HACCP / ISO 22000 Certificate', required: false },
-  { type: 'FOOD_SAFETY_CERT',    label: 'Food Safety Certificate',       required: false },
-  { type: 'COMPANY_REGISTRATION',label: 'CIPC Registration Certificate', required: false },
-];
+const REQUIRED_DOCS = [
+  { type: 'BBBEE_CERTIFICATE', label: 'B-BBEE Certificate',    tenderField: 'requiresBbbee'    },
+  { type: 'TAX_CLEARANCE',     label: 'SARS Tax Clearance',     tenderField: 'requiresTaxClear' },
+  { type: 'HACCP_CERTIFICATE', label: 'HACCP / Food Safety',    tenderField: 'requiresHaccp'    },
+] as const;
 
 function daysUntil(dateStr: string) {
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
@@ -36,27 +36,23 @@ function daysUntil(dateStr: string) {
 // ─── Submit Bid Panel ─────────────────────────────────────────────────────────
 function BidPanel({ tender, onClose }: { tender: Tender; onClose: () => void }) {
   const submit = useSubmitBid();
+  const { data: complianceData } = useMyCompliance();
   const [price, setPrice] = useState('');
   const [qty, setQty] = useState(String(tender.quantityKg));
   const [notes, setNotes] = useState('');
-  const [docs, setDocs] = useState<Set<string>>(new Set(['BBBEE_CERTIFICATE', 'TAX_CLEARANCE']));
   const [submitted, setSubmitted] = useState(false);
+
+  const vaultDocs = complianceData?.data ?? [];
+  const verifiedByType = Object.fromEntries(vaultDocs.filter(d => d.status === 'VERIFIED').map(d => [d.type, d]));
+
+  // Which tender-required docs are missing from vault
+  const missingRequired = REQUIRED_DOCS.filter(d => tender[d.tenderField] && !verifiedByType[d.type]);
 
   const totalValue = Number(price) * Number(qty);
   const overBudget = tender.budgetPerKg && Number(price) > Number(tender.budgetPerKg);
 
-  const toggleDoc = (type: string) => setDocs(prev => {
-    const next = new Set(prev);
-    if (next.has(type)) next.delete(type); else next.add(type);
-    return next;
-  });
-
   const handleSubmit = async () => {
-    const complianceDocs = COMPLIANCE_OPTIONS
-      .filter(o => docs.has(o.type))
-      .map(o => ({ type: o.type, label: `${o.label} (Mock — verified for demo)` }));
-
-    await submit.mutateAsync({ tenderId: tender.id, pricePerKg: Number(price), quantityKg: Number(qty), notes: notes || undefined, complianceDocs });
+    await submit.mutateAsync({ tenderId: tender.id, pricePerKg: Number(price), quantityKg: Number(qty), notes: notes || undefined });
     setSubmitted(true);
   };
 
@@ -136,28 +132,41 @@ function BidPanel({ tender, onClose }: { tender: Tender; onClose: () => void }) 
             </div>
           </div>
 
-          {/* Compliance documents */}
+          {/* Compliance vault status */}
           <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Compliance Documents</p>
-            <div className="space-y-2">
-              {COMPLIANCE_OPTIONS.map(opt => {
-                const isReq = (opt.type === 'BBBEE_CERTIFICATE' && tender.requiresBbbee) || (opt.type === 'TAX_CLEARANCE' && tender.requiresTaxClear) || (opt.type === 'HACCP_CERTIFICATE' && tender.requiresHaccp);
-                const checked = docs.has(opt.type);
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Compliance Vault</p>
+              <Link to="/compliance" className="text-xs text-brand-600 hover:underline">Manage docs →</Link>
+            </div>
+
+            {missingRequired.length > 0 && (
+              <div className="mb-3 p-3 bg-red-50 border border-red-100 rounded-lg">
+                <p className="text-xs font-medium text-red-700 mb-1">Missing required documents:</p>
+                {missingRequired.map(d => (
+                  <p key={d.type} className="text-xs text-red-600 flex items-center gap-1">
+                    <XCircle size={11} />{d.label}
+                  </p>
+                ))}
+                <p className="text-xs text-red-500 mt-1.5">Upload and get verified before submitting.</p>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              {REQUIRED_DOCS.filter(d => tender[d.tenderField]).map(d => {
+                const vDoc = verifiedByType[d.type];
                 return (
-                  <label key={opt.type} className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${checked ? 'border-brand-300 bg-brand-50' : 'border-gray-100 hover:bg-gray-50'}`}>
-                    <input type="checkbox" checked={checked} onChange={() => toggleDoc(opt.type)} disabled={isReq} className="rounded shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-800">{opt.label}</p>
-                      <p className="text-[10px] text-gray-400">{isReq ? 'Required for this tender' : 'Optional'}</p>
-                    </div>
-                    {checked && <ShieldCheck size={14} className="text-green-500 shrink-0" />}
-                  </label>
+                  <div key={d.type} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${vDoc ? 'bg-green-50' : 'bg-gray-50'}`}>
+                    {vDoc
+                      ? <CheckCircle2 size={14} className="text-green-500 shrink-0" />
+                      : <XCircle size={14} className="text-red-400 shrink-0" />}
+                    <span className={vDoc ? 'text-green-800' : 'text-gray-500'}>{d.label}</span>
+                    {vDoc && <span className="text-[10px] text-green-600 ml-auto">Verified</span>}
+                  </div>
                 );
               })}
             </div>
             <p className="text-[10px] text-gray-400 mt-2 leading-relaxed">
-              By submitting, you confirm all selected documents are current and available for inspection upon request.
-              This is a mock portal — no real documents are uploaded.
+              Verified documents from your compliance vault will be automatically attached to this bid.
             </p>
           </div>
 
@@ -169,9 +178,17 @@ function BidPanel({ tender, onClose }: { tender: Tender; onClose: () => void }) 
         </div>
 
         <div className="px-5 pb-5 pt-3 border-t border-gray-50 shrink-0">
-          <Button className="w-full" loading={submit.isPending} disabled={!price || !qty || Number(price) <= 0 || Number(qty) <= 0} onClick={handleSubmit}>
+          <Button
+            className="w-full"
+            loading={submit.isPending}
+            disabled={!price || !qty || Number(price) <= 0 || Number(qty) <= 0 || missingRequired.length > 0}
+            onClick={handleSubmit}
+          >
             <Award size={14} className="mr-1.5" />Submit Bid
           </Button>
+          {missingRequired.length > 0 && (
+            <p className="text-xs text-red-500 text-center mt-1.5">Complete compliance vault to enable bidding</p>
+          )}
         </div>
       </div>
     </div>
