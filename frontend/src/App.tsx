@@ -15,6 +15,7 @@ import { QualityCheckPage } from '@/pages/field-agent/QualityCheckPage';
 import { LogisticsPage } from '@/pages/logistics/LogisticsPage';
 import { SalesRepPage } from '@/pages/sales/SalesRepPage';
 import { WhatsAppSimulatorPage } from '@/pages/sales/WhatsAppSimulatorPage';
+import { MockOzowPage } from '@/pages/buyer/MockOzowPage';
 
 const ROLE_HOME: Record<string, string> = {
   FARMER: '/dashboard', BUYER: '/browse', FIELD_AGENT: '/quality',
@@ -40,6 +41,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/pay/mock-ozow" element={<MockOzowPage />} />
 
       <Route element={<AppShell />}>
         <Route path="/browse" element={<BrowsePage />} />

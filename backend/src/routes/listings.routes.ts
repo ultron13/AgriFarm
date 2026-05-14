@@ -1,10 +1,14 @@
 import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import multer from 'multer';
 import { authenticate } from '../middleware/authenticate';
 import { requireRole } from '../middleware/requireRole';
 import { validateBody, validateQuery } from '../middleware/validate';
 import { prisma } from '../lib/prisma';
+import { buildKey, getUploadUrl, publicUrl } from '../lib/r2';
 import { ok, err, paginate, AuthenticatedRequest } from '../types';
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 export const listingsRouter = Router();
 
@@ -108,6 +112,69 @@ listingsRouter.patch(
 
       const updated = await prisma.produceListing.update({ where: { id: req.params.id }, data: req.body });
       res.json(ok(updated));
+    } catch (e) {
+      next(e);
+    }
+  }
+);
+
+// Upload a photo to a listing (multipart/form-data, field "photo")
+listingsRouter.post(
+  '/:id/photos',
+  authenticate,
+  requireRole(['FARMER', 'ADMIN', 'SUPER_ADMIN']),
+  upload.single('photo'),
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const file = req.file;
+      if (!file) { res.status(400).json(err('MISSING_FILE', 'No photo file uploaded')); return; }
+
+      const listing = await prisma.produceListing.findUnique({ where: { id: req.params.id } });
+      if (!listing || listing.deletedAt) { res.status(404).json(err('NOT_FOUND', 'Listing not found')); return; }
+
+      const farmer = await prisma.farmer.findUnique({ where: { userId: req.user.sub } });
+      const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(req.user.role);
+      if (!isAdmin && farmer?.id !== listing.farmerId) {
+        res.status(403).json(err('FORBIDDEN', 'Not authorized')); return;
+      }
+
+      const ext = (file.originalname.split('.').pop() ?? 'jpg').toLowerCase();
+      const key = buildKey(`listings/${req.params.id}`, ext);
+      let photoUrl: string;
+
+      if (process.env.R2_ACCOUNT_ID) {
+        const uploadUrl = await getUploadUrl(key, file.mimetype);
+        await fetch(uploadUrl, { method: 'PUT', body: file.buffer, headers: { 'Content-Type': file.mimetype } });
+        photoUrl = publicUrl(key);
+      } else {
+        // Mock: store inline as data URL (demo only — fine for images up to 5 MB)
+        photoUrl = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+      }
+
+      const sortOrder = await prisma.listingPhoto.count({ where: { listingId: req.params.id } });
+      const photo = await prisma.listingPhoto.create({
+        data: { listingId: req.params.id, r2Key: key, url: photoUrl, sortOrder },
+      });
+
+      res.status(201).json(ok(photo));
+    } catch (e) {
+      next(e);
+    }
+  }
+);
+
+listingsRouter.delete(
+  '/:id/photos/:photoId',
+  authenticate,
+  requireRole(['FARMER', 'ADMIN', 'SUPER_ADMIN']),
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const photo = await prisma.listingPhoto.findUnique({ where: { id: req.params.photoId } });
+      if (!photo || photo.listingId !== req.params.id) {
+        res.status(404).json(err('NOT_FOUND', 'Photo not found')); return;
+      }
+      await prisma.listingPhoto.delete({ where: { id: req.params.photoId } });
+      res.json(ok({ deleted: true }));
     } catch (e) {
       next(e);
     }

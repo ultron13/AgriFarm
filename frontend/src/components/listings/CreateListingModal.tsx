@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
-import { X, Sprout, TrendingUp, AlertCircle } from 'lucide-react';
+import { useState, useMemo, useRef } from 'react';
+import { X, Sprout, TrendingUp, AlertCircle, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useProducts } from '@/hooks/useProducts';
 import { useCreateListing } from '@/hooks/useListings';
+import { useUploadListingPhoto } from '@/hooks/usePayments';
 
 interface CreateListingModalProps {
   onClose: () => void;
@@ -25,6 +26,19 @@ export function CreateListingModal({ onClose, onSuccess }: CreateListingModalPro
   const [availableUntil, setAvailableUntil] = useState(inThirtyDays);
 
   const createListing = useCreateListing();
+  const uploadPhoto = useUploadListingPhoto();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setPhotoPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
 
   const selectedProduct = useMemo(() => products.find((p) => p.id === productId), [products, productId]);
   const grades = selectedProduct?.grades ?? [];
@@ -44,7 +58,7 @@ export function CreateListingModal({ onClose, onSuccess }: CreateListingModalPro
   const handleSubmit = async () => {
     if (!isValid) return;
     try {
-      await createListing.mutateAsync({
+      const listing = await createListing.mutateAsync({
         productId,
         gradeId: gradeId || undefined,
         farmGatePrice: fgPrice,
@@ -53,9 +67,12 @@ export function CreateListingModal({ onClose, onSuccess }: CreateListingModalPro
         availableFrom: new Date(availableFrom).toISOString(),
         availableUntil: new Date(availableUntil).toISOString(),
       });
+      if (photoFile && listing.data?.id) {
+        await uploadPhoto.mutateAsync({ listingId: listing.data.id, file: photoFile });
+      }
       onSuccess();
     } catch {
-      // error shown via createListing.error
+      // error shown via createListing.error / uploadPhoto.error
     }
   };
 
@@ -208,9 +225,44 @@ export function CreateListingModal({ onClose, onSuccess }: CreateListingModalPro
             </div>
           )}
 
-          {createListing.error && (
+          {/* Photo upload */}
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-1.5">
+              Photo <span className="text-gray-400 font-normal">(optional)</span>
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            {photoPreview ? (
+              <div className="relative">
+                <img src={photoPreview} alt="Preview" className="w-full h-32 object-cover rounded-xl" />
+                <button
+                  type="button"
+                  onClick={() => { setPhotoFile(null); setPhotoPreview(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                  className="absolute top-2 right-2 w-6 h-6 bg-black/50 rounded-full flex items-center justify-center text-white text-xs hover:bg-black/70"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full h-24 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center gap-1.5 text-gray-400 hover:border-brand-300 hover:text-brand-500 transition-colors"
+              >
+                <Camera size={20} />
+                <span className="text-xs">Click to add a photo</span>
+              </button>
+            )}
+          </div>
+
+          {(createListing.error || uploadPhoto.error) && (
             <p className="text-sm text-red-500 flex items-center gap-1.5">
-              <AlertCircle size={14} /> {(createListing.error as Error).message}
+              <AlertCircle size={14} /> {((createListing.error ?? uploadPhoto.error) as Error).message}
             </p>
           )}
         </div>
@@ -220,11 +272,11 @@ export function CreateListingModal({ onClose, onSuccess }: CreateListingModalPro
           <Button variant="secondary" className="flex-1" onClick={onClose}>Cancel</Button>
           <Button
             className="flex-1"
-            loading={createListing.isPending}
+            loading={createListing.isPending || uploadPhoto.isPending}
             disabled={!isValid}
             onClick={handleSubmit}
           >
-            Create Listing
+            {uploadPhoto.isPending ? 'Uploading photo…' : 'Create Listing'}
           </Button>
         </div>
       </div>

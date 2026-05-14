@@ -18,7 +18,7 @@ export const OrderService = {
       input.items.map((i) =>
         prisma.produceListing.findUniqueOrThrow({
           where: { id: i.listingId },
-          include: { farmer: true },
+          include: { farmer: true, product: true },
         })
       )
     );
@@ -43,7 +43,9 @@ export const OrderService = {
     const paymentDueDate = new Date(input.deliveryDate);
     paymentDueDate.setDate(paymentDueDate.getDate() + buyer.preferredPaymentTerms);
 
-    const order = await prisma.$transaction(async (tx) => {
+    const invoiceNumber = `INV-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+
+    const { order, invoiceId } = await prisma.$transaction(async (tx) => {
       const o = await tx.order.create({
         data: {
           orderNumber,
@@ -76,8 +78,29 @@ export const OrderService = {
         });
       }
 
-      return o;
+      // Create invoice record (PDF generated async by worker)
+      const inv = await tx.invoice.create({
+        data: {
+          invoiceNumber,
+          orderId: o.id,
+          buyerSnapshot: { displayName: buyer.displayName },
+          lineItems: lineItems.map((item, idx) => ({
+            name: listings[idx].product.name,
+            quantityKg: item.quantityKg,
+            farmGatePrice: item.farmGatePrice,
+            amount: item.farmGatePrice * item.quantityKg,
+          })),
+          subtotal: deliveredPrice,
+          vatAmount: 0,
+          total: deliveredPrice,
+          dueDate: paymentDueDate,
+        },
+      });
+
+      return { order: o, invoiceId: inv.id };
     });
+
+    await invoicesQueue.add('generate_invoice', { invoiceId, orderId: order.id });
 
     await notificationsQueue.add('order_placed', {
       channel: 'whatsapp' as const,
@@ -124,8 +147,6 @@ export const OrderService = {
       });
       await payoutsQueue.add('process_payout', { payoutId: payout.id }, { delay: payoutDelay });
     }
-
-    await invoicesQueue.add('generate_invoice', { invoiceId: '', orderId });
 
     return updated;
   },

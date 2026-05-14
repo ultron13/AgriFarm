@@ -1,9 +1,12 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   PackageCheck, ChevronRight, Clock, CreditCard, Truck,
-  CheckCircle2, MapPin, AlertCircle, ShieldCheck,
+  CheckCircle2, MapPin, AlertCircle, ShieldCheck, FileText, Loader2, ExternalLink,
 } from 'lucide-react';
 import { useOrders, useConfirmDelivery } from '@/hooks/useOrders';
+import { useInitiatePayment } from '@/hooks/usePayments';
+import { useInvoice, invoicePdfUrl } from '@/hooks/useInvoices';
 import { OrderStatusBadge } from '@/components/orders/OrderStatusBadge';
 import { Button } from '@/components/ui/Button';
 import type { Order, DeliveryStatus } from '@/types';
@@ -45,6 +48,34 @@ function DeliveryTracker({ delivery }: { delivery: Order['delivery'] }) {
   );
 }
 
+function InvoiceButton({ orderId }: { orderId: string }) {
+  const { data } = useInvoice(orderId);
+  const invoice = data?.data;
+  if (!invoice) return null;
+
+  if (invoice.status === 'DRAFT') {
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-gray-400">
+        <Loader2 size={11} className="animate-spin" />
+        Generating invoice…
+      </div>
+    );
+  }
+
+  return (
+    <a
+      href={invoicePdfUrl(orderId)}
+      target="_blank"
+      rel="noreferrer"
+      className="flex items-center gap-1.5 text-xs text-brand-600 hover:text-brand-700 font-medium"
+    >
+      <FileText size={12} />
+      {invoice.invoiceNumber}
+      <ExternalLink size={10} />
+    </a>
+  );
+}
+
 function OrderDetail({
   order,
   onConfirmed,
@@ -55,8 +86,18 @@ function OrderDetail({
   onClose: () => void;
 }) {
   const confirm = useConfirmDelivery();
+  const initiatePay = useInitiatePayment();
   const canConfirm = CONFIRMABLE.includes(order.status);
   const isDelivered = order.status === 'DELIVERED';
+  const canPay = ['PENDING', 'CONFIRMED'].includes(order.status);
+
+  const handlePay = () => {
+    initiatePay.mutate({ orderId: order.id, method: 'INSTANT_EFT' }, {
+      onSuccess: (res) => {
+        if (res.data?.redirectUrl) window.location.href = res.data.redirectUrl;
+      },
+    });
+  };
 
   const handleConfirm = () => {
     confirm.mutate(order.id, {
@@ -134,7 +175,35 @@ function OrderDetail({
           <p className="text-[11px] text-gray-400 mt-0.5">incl. logistics · {order.paymentTermDays ?? 7}-day payment terms</p>
         </div>
 
-        {/* Confirm action */}
+        {/* Invoice */}
+        <div className="border-t border-gray-50 pt-4 flex items-center justify-between">
+          <span className="text-xs text-gray-400 uppercase tracking-wide font-medium">Invoice</span>
+          <InvoiceButton orderId={order.id} />
+        </div>
+
+        {/* Pay via EFT */}
+        {canPay && (
+          <div className="border-t border-gray-50 pt-4 space-y-2">
+            <p className="text-xs text-gray-500">Pay now via Instant EFT — powered by Ozow</p>
+            <Button
+              className="w-full"
+              size="sm"
+              variant="secondary"
+              loading={initiatePay.isPending}
+              onClick={handlePay}
+            >
+              <CreditCard size={14} className="mr-1.5" />
+              Pay R{Number(order.deliveredPrice).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+            </Button>
+            {initiatePay.isError && (
+              <p className="text-xs text-red-500 flex items-center gap-1">
+                <AlertCircle size={11} /> Failed — try again
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Confirm receipt */}
         {canConfirm && (
           <div className="border-t border-gray-50 pt-4 space-y-2">
             <p className="text-xs text-gray-500">
@@ -172,6 +241,15 @@ export function BuyerOrdersPage() {
   const { data, isLoading, refetch } = useOrders();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const paymentResult = searchParams.get('payment');
+
+  // Clear the query param after showing the toast
+  const dismissPaymentBanner = () => {
+    searchParams.delete('payment');
+    setSearchParams(searchParams, { replace: true });
+    refetch();
+  };
 
   const orders = data?.data ?? [];
   const selected = orders.find((o) => o.id === selectedId) ?? null;
@@ -187,7 +265,19 @@ export function BuyerOrdersPage() {
       <h1 className="text-2xl font-bold text-gray-900 mb-1">My Orders</h1>
       <p className="text-sm text-gray-400 mb-6">Track and confirm your produce deliveries</p>
 
-      {/* Success toast */}
+      {/* Payment success banner */}
+      {paymentResult === 'success' && (
+        <div className="mb-5 flex items-center gap-3 bg-green-50 border border-green-100 rounded-2xl px-5 py-3.5">
+          <CheckCircle2 size={18} className="text-green-600 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-green-800">Payment received</p>
+            <p className="text-xs text-green-600 mt-0.5">Your EFT payment has been processed successfully.</p>
+          </div>
+          <button onClick={dismissPaymentBanner} className="text-green-400 hover:text-green-600 text-lg leading-none">×</button>
+        </div>
+      )}
+
+      {/* Delivery confirmed toast */}
       {confirmed && (
         <div className="mb-5 flex items-center gap-3 bg-green-50 border border-green-100 rounded-2xl px-5 py-3.5">
           <CheckCircle2 size={18} className="text-green-600 shrink-0" />

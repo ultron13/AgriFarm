@@ -23,8 +23,11 @@ export interface OzowPaymentResponse {
 
 export async function createPaymentUrl(req: OzowPaymentRequest): Promise<OzowPaymentResponse> {
   if (!SITE_CODE || !PRIVATE_KEY) {
-    logger.warn('Ozow credentials not configured');
-    return { url: '#', transactionId: 'mock' };
+    const mockRef = `MOCK-${Date.now()}`;
+    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:5173';
+    const url = `${frontendUrl}/pay/mock-ozow?orderId=${encodeURIComponent(req.orderId)}&amount=${req.amount}&ref=${mockRef}`;
+    logger.info({ orderId: req.orderId, url }, 'Ozow mock payment URL generated');
+    return { url, transactionId: mockRef };
   }
 
   const payload = {
