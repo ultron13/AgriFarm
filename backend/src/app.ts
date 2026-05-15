@@ -31,9 +31,13 @@ export function createApp() {
   if (process.env.CF_WORKER !== 'true') {
     app.use(compression());
   }
-  const rawOrigin = process.env.FRONTEND_URL ?? 'http://localhost:5173';
-  const origin = rawOrigin.startsWith('http') ? rawOrigin : `https://${rawOrigin}`;
-  app.use(cors({ origin, credentials: true }));
+  app.use(cors({
+    origin: (_req, callback) => {
+      const raw = process.env.FRONTEND_URL ?? 'http://localhost:5173';
+      callback(null, raw.startsWith('http') ? raw : `https://${raw}`);
+    },
+    credentials: true,
+  }));
   app.use(cookieParser());
   // pino-http uses pino worker_threads internals that don't work in CF Workers
   if (process.env.CF_WORKER !== 'true') {
