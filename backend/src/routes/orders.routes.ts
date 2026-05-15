@@ -192,22 +192,21 @@ ordersRouter.post(
   }
 );
 
-const VALID_STATUSES = ['PENDING', 'CONFIRMED', 'QUALITY_CHECKED', 'IN_TRANSIT', 'AT_HUB', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
+const updateStatusSchema = z.object({
+  status: z.enum(['PENDING', 'CONFIRMED', 'QUALITY_CHECKED', 'IN_TRANSIT', 'AT_HUB', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED']),
+});
 
 ordersRouter.patch(
   '/:id/status',
   authenticate,
   requireRole(['ADMIN', 'SUPER_ADMIN']),
+  validateBody(updateStatusSchema),
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const { status } = req.body as { status: string };
-      if (!VALID_STATUSES.includes(status)) {
-        res.status(400).json(err('INVALID_STATUS', 'Invalid status value'));
-        return;
-      }
+      const { status } = req.body as z.infer<typeof updateStatusSchema>;
       const order = await prisma.order.update({
         where: { id: req.params.id },
-        data: { status: status as never },
+        data: { status },
         include: { buyer: { select: { displayName: true, buyerType: true } }, items: { include: { listing: { include: { product: true } } } }, delivery: true, payment: true },
       });
 
