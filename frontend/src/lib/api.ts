@@ -1,8 +1,11 @@
 import type { ApiResponse } from '@/types';
 
-// VITE_API_URL is set at build time by Render (e.g. https://farmconnect-api.onrender.com).
-// In local dev it is unset, so the Vite proxy handles /api → localhost:3000.
-const BASE = `${import.meta.env.VITE_API_URL ?? ''}/api/v1`;
+// VITE_API_URL is injected at build time by Render. Render's fromService gives
+// just the hostname (e.g. farmconnect-api.onrender.com), so we prepend https://.
+// In local dev it is unset and the Vite proxy forwards /api → localhost:3000.
+const _raw = import.meta.env.VITE_API_URL ?? '';
+const _base = _raw && !_raw.startsWith('http') ? `https://${_raw}` : _raw;
+const BASE = `${_base}/api/v1`;
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<ApiResponse<T>> {
   const res = await fetch(`${BASE}${path}`, {

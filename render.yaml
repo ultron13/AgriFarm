@@ -32,8 +32,8 @@ services:
     plan: free
     rootDir: backend
     buildCommand: npm ci && npx prisma generate && npm run build
-    startCommand: node dist/server.js
-    preDeployCommand: npx prisma migrate deploy
+    # Migrations run on every start — Prisma migrate is idempotent so this is safe.
+    startCommand: npx prisma migrate deploy && node dist/server.js
     healthCheckPath: /health
     envVars:
       - fromGroup: farmconnect-jwt
@@ -48,16 +48,17 @@ services:
           name: farmconnect-redis
           type: redis
           property: connectionString
+      # Render fromService gives hostname only; code prepends https:// automatically.
       - key: FRONTEND_URL
         fromService:
           name: farmconnect-web
           type: web
-          property: url
+          property: host
       - key: API_URL
         fromService:
           name: farmconnect-api
           type: web
-          property: url
+          property: host
       - key: OZOW_IS_TEST
         value: "false"
       - key: OZOW_SITE_CODE
@@ -142,7 +143,6 @@ services:
   - type: web
     name: farmconnect-web
     runtime: static
-    region: oregon
     rootDir: frontend
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
@@ -152,11 +152,12 @@ services:
         source: /*
         destination: /index.html
     envVars:
+      # Render gives hostname only; api.ts prepends https:// automatically.
       - key: VITE_API_URL
         fromService:
           name: farmconnect-api
           type: web
-          property: url
+          property: host
 
 databases:
   # ── PostgreSQL ───────────────────────────────────────────────────────────────

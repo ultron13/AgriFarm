@@ -46,14 +46,17 @@ paymentsRouter.post(
       });
 
       if (method === 'INSTANT_EFT') {
-        const BASE = process.env.FRONTEND_URL ?? 'http://localhost:5173';
+        const rawFrontend = process.env.FRONTEND_URL ?? 'http://localhost:5173';
+        const FRONT = rawFrontend.startsWith('http') ? rawFrontend : `https://${rawFrontend}`;
+        const rawApi = process.env.API_URL ?? 'http://localhost:3000';
+        const API = rawApi.startsWith('http') ? rawApi : `https://${rawApi}`;
         const { url } = await createPaymentUrl({
           orderId,
           amount: Number(order.deliveredPrice),
-          successUrl: `${BASE}/orders/${orderId}?payment=success`,
-          cancelUrl: `${BASE}/orders/${orderId}?payment=cancelled`,
-          errorUrl: `${BASE}/orders/${orderId}?payment=error`,
-          notifyUrl: `${process.env.API_URL ?? 'http://localhost:3000'}/api/v1/webhooks/ozow`,
+          successUrl: `${FRONT}/orders/${orderId}?payment=success`,
+          cancelUrl: `${FRONT}/orders/${orderId}?payment=cancelled`,
+          errorUrl: `${FRONT}/orders/${orderId}?payment=error`,
+          notifyUrl: `${API}/api/v1/webhooks/ozow`,
         });
         res.json(ok({ paymentId: payment.id, redirectUrl: url }));
       } else {
