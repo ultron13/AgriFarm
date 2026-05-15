@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
+import { redis } from '../lib/redis';
 import { verifyWebhookSignature as verifyOzow } from '../lib/ozow';
 import { verifyWebhookSignature as verifyStitch } from '../lib/stitch';
 import { WhatsAppService } from '../services/whatsapp.service';
@@ -10,53 +11,85 @@ export const webhooksRouter = Router();
 // Note: body is raw Buffer (set in app.ts before express.json())
 
 webhooksRouter.post('/ozow', async (req: Request, res: Response) => {
-  res.sendStatus(200); // acknowledge immediately
+  try {
+    const signature = req.headers['hash'] as string ?? '';
+    const payload = (req.body as Buffer).toString();
 
-  const signature = req.headers['hash'] as string ?? '';
-  const payload = (req.body as Buffer).toString();
+    if (!verifyOzow(payload, signature)) {
+      logger.warn('Ozow webhook signature verification failed');
+      res.sendStatus(400);
+      return;
+    }
 
-  if (!verifyOzow(payload, signature)) {
-    logger.warn('Ozow webhook signature verification failed');
-    return;
-  }
+    const data = JSON.parse(payload) as { TransactionReference: string; Status: string; TransactionId: string };
 
-  const data = JSON.parse(payload) as { TransactionReference: string; Status: string; TransactionId: string };
-  const orderId = data.TransactionReference;
-  const isPaid = data.Status === 'Complete';
+    // Idempotency: SET NX gives us exactly-once processing; a replayed event
+    // (same TransactionId) hits the early return and never touches the DB.
+    const idempotencyKey = `webhook:ozow:${data.TransactionId}`;
+    const isNew = await redis.set(idempotencyKey, '1', 'EX', 86400, 'NX');
+    if (!isNew) {
+      logger.info({ transactionId: data.TransactionId }, 'Ozow webhook duplicate — skipping');
+      res.sendStatus(200);
+      return;
+    }
 
-  await prisma.payment.updateMany({
-    where: { orderId },
-    data: { status: isPaid ? 'PAID' : 'FAILED', pspReference: data.TransactionId, ...(isPaid && { paidAt: new Date() }) },
-  });
+    const orderId = data.TransactionReference;
+    const isPaid = data.Status === 'Complete';
 
-  if (isPaid) {
-    await prisma.order.update({ where: { id: orderId }, data: { status: 'CONFIRMED' } });
+    await prisma.payment.updateMany({
+      where: { orderId },
+      data: { status: isPaid ? 'PAID' : 'FAILED', pspReference: data.TransactionId, ...(isPaid && { paidAt: new Date() }) },
+    });
+
+    if (isPaid) {
+      await prisma.order.update({ where: { id: orderId }, data: { status: 'CONFIRMED' } });
+    }
+
+    res.sendStatus(200);
+  } catch (e) {
+    logger.error({ err: e }, 'Ozow webhook processing error');
+    res.sendStatus(500);
   }
 });
 
 webhooksRouter.post('/stitch', async (req: Request, res: Response) => {
-  res.sendStatus(200);
+  try {
+    const signature = req.headers['x-stitch-signature'] as string ?? '';
+    const payload = (req.body as Buffer).toString();
 
-  const signature = req.headers['x-stitch-signature'] as string ?? '';
-  const payload = (req.body as Buffer).toString();
+    if (!verifyStitch(payload, signature)) {
+      logger.warn('Stitch webhook signature verification failed');
+      res.sendStatus(400);
+      return;
+    }
 
-  if (!verifyStitch(payload, signature)) {
-    logger.warn('Stitch webhook signature verification failed');
-    return;
-  }
+    const data = JSON.parse(payload) as { type: string; data: { payoutId: string; status: string } };
 
-  const data = JSON.parse(payload) as { type: string; data: { payoutId: string; status: string } };
+    // Idempotency: one payout event type per payoutId is processed exactly once.
+    const idempotencyKey = `webhook:stitch:${data.data.payoutId}:${data.type}`;
+    const isNew = await redis.set(idempotencyKey, '1', 'EX', 86400, 'NX');
+    if (!isNew) {
+      logger.info({ payoutId: data.data.payoutId }, 'Stitch webhook duplicate — skipping');
+      res.sendStatus(200);
+      return;
+    }
 
-  if (data.type === 'payout.completed') {
-    await prisma.payout.updateMany({
-      where: { pspReference: data.data.payoutId },
-      data: { status: 'PAID', paidAt: new Date() },
-    });
-  } else if (data.type === 'payout.failed') {
-    await prisma.payout.updateMany({
-      where: { pspReference: data.data.payoutId },
-      data: { status: 'FAILED' },
-    });
+    if (data.type === 'payout.completed') {
+      await prisma.payout.updateMany({
+        where: { pspReference: data.data.payoutId },
+        data: { status: 'PAID', paidAt: new Date() },
+      });
+    } else if (data.type === 'payout.failed') {
+      await prisma.payout.updateMany({
+        where: { pspReference: data.data.payoutId },
+        data: { status: 'FAILED' },
+      });
+    }
+
+    res.sendStatus(200);
+  } catch (e) {
+    logger.error({ err: e }, 'Stitch webhook processing error');
+    res.sendStatus(500);
   }
 });
 

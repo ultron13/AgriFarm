@@ -83,6 +83,24 @@ export const OrderService = {
     const invoiceNumber = `INV-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
 
     const { order, invoiceId } = await prisma.$transaction(async (tx) => {
+      // Re-check credit limit inside the transaction to close the race window
+      // between the outer fast-fail check and the insert under concurrent load.
+      if (buyer.creditLimit !== null) {
+        const { _sum } = await tx.order.aggregate({
+          where: { buyerId, status: { notIn: ['CANCELLED', 'REFUNDED'] }, deletedAt: null },
+          _sum: { deliveredPrice: true },
+        });
+        const outstanding = _sum.deliveredPrice ?? new Prisma.Decimal(0);
+        if (outstanding.add(deliveredPrice).gt(buyer.creditLimit)) {
+          throw Object.assign(
+            new Error(
+              `Order total of R${deliveredPrice.toFixed(2)} would exceed your credit limit of R${buyer.creditLimit.toFixed(2)}`
+            ),
+            { statusCode: 409, code: 'CREDIT_LIMIT_EXCEEDED' }
+          );
+        }
+      }
+
       const o = await tx.order.create({
         data: {
           orderNumber,
