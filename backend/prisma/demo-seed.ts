@@ -384,6 +384,9 @@ async function main() {
   // ════════════════════════════════════════════════════════════════════════════
   // STAFF USERS
   // ════════════════════════════════════════════════════════════════════════════
+  const adminPw = await bcrypt.hash('admin-change-me', 12);
+  await prisma.user.upsert({ where: { email: 'admin@farmconnect.co.za' }, update: {}, create: { email: 'admin@farmconnect.co.za', passwordHash: adminPw, role: 'ADMIN' } });
+  await prisma.user.upsert({ where: { email: 'superadmin@farmconnect.co.za' }, update: {}, create: { email: 'superadmin@farmconnect.co.za', passwordHash: adminPw, role: 'SUPER_ADMIN' } });
   await prisma.user.upsert({ where: { email: 'sales@demo.farmconnect.co.za' }, update: {}, create: { email: 'sales@demo.farmconnect.co.za', passwordHash: pw, role: 'SALES_REP' } });
   await prisma.user.upsert({ where: { email: 'agent@demo.farmconnect.co.za' }, update: {}, create: { email: 'agent@demo.farmconnect.co.za', passwordHash: pw, role: 'FIELD_AGENT' } });
   await prisma.user.upsert({ where: { email: 'logistics@demo.farmconnect.co.za' }, update: {}, create: { email: 'logistics@demo.farmconnect.co.za', passwordHash: pw, role: 'LOGISTICS_COORDINATOR' } });
