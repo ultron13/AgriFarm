@@ -2,8 +2,8 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } fro
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
 
-if (!process.env.R2_PUBLIC_URL && process.env.NODE_ENV === 'production') {
-  throw new Error('R2_PUBLIC_URL env var is required in production — set it before starting the server');
+if (process.env.R2_BUCKET_NAME && !process.env.R2_PUBLIC_URL && process.env.NODE_ENV === 'production') {
+  throw new Error('R2_PUBLIC_URL env var is required in production when R2_BUCKET_NAME is set');
 }
 
 const BUCKET = process.env.R2_BUCKET_NAME ?? 'farmconnect-dev';
