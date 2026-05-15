@@ -6,7 +6,7 @@ import { authenticate } from '../middleware/authenticate';
 import { requireRole } from '../middleware/requireRole';
 import { validateBody } from '../middleware/validate';
 import { prisma } from '../lib/prisma';
-import { uploadFile, deleteFile } from '../lib/r2';
+import { uploadFile, deleteFile, getSignedReadUrl } from '../lib/r2';
 import { ok, err, AuthenticatedRequest } from '../types';
 import { ComplianceDocType } from '@prisma/client';
 
@@ -63,7 +63,13 @@ complianceRouter.get('/', authenticate, async (req: AuthenticatedRequest, res: R
       toExpire.forEach(d => { d.status = 'EXPIRED'; });
     }
 
-    res.json(ok(docs));
+    // Replace stored fileUrl with a short-lived presigned URL so compliance
+    // documents are never served from a guessable public path (POPIA).
+    const signedDocs = await Promise.all(
+      docs.map(async (doc) => ({ ...doc, fileUrl: await getSignedReadUrl(doc.fileKey) }))
+    );
+
+    res.json(ok(signedDocs));
   } catch (e) { next(e); }
 });
 

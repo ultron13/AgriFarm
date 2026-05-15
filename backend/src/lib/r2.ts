@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
 
@@ -39,4 +39,12 @@ export async function uploadFile(key: string, buffer: Buffer, contentType: strin
 export async function deleteFile(key: string): Promise<void> {
   if (isMock) return;
   await s3!.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
+}
+
+// Generates a short-lived presigned GET URL so sensitive objects (compliance
+// docs) are never served from a guessable public path.
+export async function getSignedReadUrl(key: string, ttlSeconds = 300): Promise<string> {
+  if (isMock) return `mock://r2/${key}`;
+  const command = new GetObjectCommand({ Bucket: BUCKET, Key: key });
+  return getSignedUrl(s3!, command, { expiresIn: ttlSeconds });
 }

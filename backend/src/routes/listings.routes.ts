@@ -30,6 +30,17 @@ const createListingSchema = z.object({
   availableUntil: z.string().datetime(),
 });
 
+// Strict schema for updates — unknown keys (farmerId, deletedAt, status, …)
+// are rejected with a 422 before they reach Prisma.
+const updateListingSchema = z.object({
+  farmGatePrice: z.number().positive().optional(),
+  availableKg: z.number().positive().optional(),
+  minimumOrderKg: z.number().positive().optional(),
+  availableFrom: z.string().datetime().optional(),
+  availableUntil: z.string().datetime().optional(),
+  status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
+}).strict();
+
 listingsRouter.get('/', validateQuery(listingQuerySchema), async (req, res: Response, next: NextFunction) => {
   try {
     const q = req.query as z.infer<typeof listingQuerySchema>;
@@ -93,6 +104,7 @@ listingsRouter.patch(
   '/:id',
   authenticate,
   requireRole(['FARMER', 'ADMIN', 'SUPER_ADMIN']),
+  validateBody(updateListingSchema),
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const listing = await prisma.produceListing.findUnique({ where: { id: req.params.id } });
@@ -110,7 +122,8 @@ listingsRouter.patch(
         return;
       }
 
-      const updated = await prisma.produceListing.update({ where: { id: req.params.id }, data: req.body });
+      const body = req.body as z.infer<typeof updateListingSchema>;
+      const updated = await prisma.produceListing.update({ where: { id: req.params.id }, data: body });
       res.json(ok(updated));
     } catch (e) {
       next(e);
