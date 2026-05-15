@@ -1,0 +1,24 @@
+{
+  "name": "agrifarm",
+  "version": "1.0.0",
+  "description": "A logistics-enabled B2B agricultural marketplace connecting Limpopo farmers directly to Gauteng restaurants, hotels, caterers, and government buyers — cutting out the middlemen that absorb 40-55% of farm-gate value.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ultron13/AgriFarm.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ultron13/AgriFarm/issues"
+  },
+  "homepage": "https://github.com/ultron13/AgriFarm#readme"
+}

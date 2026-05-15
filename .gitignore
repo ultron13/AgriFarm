@@ -8,3 +8,6 @@ dist/
 coverage/
 .nyc_output/
 prisma/generated/
+test-results/
+playwright-report/
+.claude/
