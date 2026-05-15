@@ -27,7 +27,10 @@ export function createApp() {
   const app = express();
 
   app.use(helmet());
-  app.use(compression());
+  // compression() accesses req.socket which doesn't exist in CF Workers
+  if (process.env.CF_WORKER !== 'true') {
+    app.use(compression());
+  }
   const rawOrigin = process.env.FRONTEND_URL ?? 'http://localhost:5173';
   const origin = rawOrigin.startsWith('http') ? rawOrigin : `https://${rawOrigin}`;
   app.use(cors({ origin, credentials: true }));

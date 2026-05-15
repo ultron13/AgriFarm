@@ -1,7 +1,7 @@
 name = "farmconnect-api"
 main = "src/index.ts"
 compatibility_date = "2024-09-23"
-compatibility_flags = ["nodejs_compat"]
+compatibility_flags = ["nodejs_compat_v2"]
 tsconfig = "tsconfig.worker.json"
 
 # [define] values are compile-time constants — esbuild replaces them before bundling.
