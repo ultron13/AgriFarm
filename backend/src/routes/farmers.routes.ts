@@ -95,7 +95,7 @@ farmersRouter.post('/onboard', authenticate, requireRole(['SALES_REP', 'ADMIN', 
   try {
     const body = req.body as z.infer<typeof onboardFarmerSchema>;
     const bcrypt = await import('bcryptjs');
-    const passwordHash = await bcrypt.hash(body.password, 10);
+    const passwordHash = await bcrypt.hash(body.password, 12);
 
     const existing = await prisma.user.findUnique({ where: { email: body.email } });
     if (existing) { res.status(409).json(err('CONFLICT', 'Email already registered')); return; }
