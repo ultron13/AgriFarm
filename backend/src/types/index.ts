@@ -8,9 +8,15 @@ export interface JwtPayload {
   exp: number;
 }
 
-export interface AuthenticatedRequest extends Request {
-  user: JwtPayload;
+declare global {
+  namespace Express {
+    interface Request {
+      user: JwtPayload;
+    }
+  }
 }
+
+export type AuthenticatedRequest = Request;
 
 export interface ApiResponse<T> {
   data: T | null;

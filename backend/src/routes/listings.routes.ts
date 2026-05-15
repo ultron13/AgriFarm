@@ -1,5 +1,6 @@
 import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import { ListingStatus } from '@prisma/client';
 import multer from 'multer';
 import { authenticate } from '../middleware/authenticate';
 import { requireRole } from '../middleware/requireRole';
@@ -39,7 +40,7 @@ const updateListingSchema = z.object({
   minimumOrderKg: z.number().positive().optional(),
   availableFrom: z.string().datetime().optional(),
   availableUntil: z.string().datetime().optional(),
-  status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
+  status: z.nativeEnum(ListingStatus).optional(),
 }).strict();
 
 listingsRouter.get('/', validateQuery(listingQuerySchema), async (req, res: Response, next: NextFunction) => {
