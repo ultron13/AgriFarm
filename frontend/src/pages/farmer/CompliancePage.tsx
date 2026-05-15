@@ -114,7 +114,7 @@ function DocRow({ docType, doc }: { docType: typeof DOC_TYPES[0]; doc?: VaultDoc
               type="file"
               accept=".pdf,.jpg,.jpeg,.png"
               className="hidden"
-              onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); }}
+              onChange={async e => { const f = e.target.files?.[0]; if (f) await handleUpload(f); }}
             />
             <Button
               size="sm"
