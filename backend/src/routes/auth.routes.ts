@@ -34,6 +34,8 @@ import { JWT_SECRET } from '../lib/jwt-secret';
 import { authenticate } from '../middleware/authenticate';
 import { revokeUserTokens } from '../lib/token-revocation';
 import { AuthenticatedRequest } from '../types';
+import { deleteFile } from '../lib/r2';
+import { audit } from '../lib/audit';
 
 export const authRouter = Router();
 
@@ -108,4 +110,63 @@ authRouter.post('/logout', authenticate, async (req: Request, res: Response) => 
   try { await revokeUserTokens((req as AuthenticatedRequest).user.sub); } catch { /* best-effort */ }
   res.clearCookie('fc_token', { path: '/' });
   res.json(ok({ loggedOut: true }));
+});
+
+// DELETE /auth/me — POPIA right-to-erasure (section 24)
+// Anonymises all personal data in-place; financial records are retained for
+// statutory tax purposes. Compliance docs are deleted from R2 and the DB.
+authRouter.delete('/me', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  const { sub: userId, role } = (req as AuthenticatedRequest).user;
+  try {
+    // Collect R2 keys before the transaction so we can delete them after commit.
+    let r2Keys: string[] = [];
+    if (role === 'FARMER') {
+      const farmer = await prisma.farmer.findUnique({ where: { userId } });
+      if (farmer) {
+        const docs = await prisma.complianceDoc.findMany({ where: { farmerId: farmer.id }, select: { fileKey: true } });
+        r2Keys = docs.map(d => d.fileKey);
+      }
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          email: `erased-${userId}@deleted.farmconnect.co.za`,
+          phone: null,
+          passwordHash: '[ERASED]',
+          isActive: false,
+          deletedAt: new Date(),
+        },
+      });
+
+      if (role === 'FARMER') {
+        const farmer = await tx.farmer.findUnique({ where: { userId } });
+        if (farmer) {
+          await tx.complianceDoc.deleteMany({ where: { farmerId: farmer.id } });
+          await tx.farmer.update({
+            where: { id: farmer.id },
+            data: { displayName: '[Deleted Farmer]', gpsLat: null, gpsLng: null, bankAccountRef: null, deletedAt: new Date() },
+          });
+        }
+      } else if (role === 'BUYER' || role === 'GOV_BUYER') {
+        await tx.buyer.updateMany({
+          where: { userId },
+          data: { displayName: '[Deleted Buyer]', whatsappNumber: null, deletedAt: new Date() },
+        });
+      }
+    });
+
+    // Best-effort R2 deletion after the DB transaction commits.
+    await Promise.allSettled(r2Keys.map(key => deleteFile(key)));
+
+    try { await revokeUserTokens(userId); } catch { /* best-effort */ }
+    res.clearCookie('fc_token', { path: '/' });
+
+    await audit({ userId, action: 'ACCOUNT_ERASED', resourceType: 'User', resourceId: userId, ip: req.ip });
+
+    res.json(ok({ erased: true }));
+  } catch (e) {
+    next(e);
+  }
 });
