@@ -30,9 +30,10 @@ const registerLimiter = rateLimit({
   handler: rateLimitResponse('RATE_LIMITED', 'Too many registration attempts, please try again later'),
 });
 
+import { JWT_SECRET } from '../lib/jwt-secret';
+
 export const authRouter = Router();
 
-const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN ?? '7d';
 
 const registerSchema = z.object({

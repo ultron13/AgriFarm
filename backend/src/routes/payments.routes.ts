@@ -66,21 +66,3 @@ paymentsRouter.get('/:orderId', authenticate, async (req, res: Response, next: N
   }
 });
 
-// Simulate a completed Ozow payment — development/mock only
-paymentsRouter.post('/mock-complete', async (req, res: Response, next: NextFunction) => {
-  if (process.env.NODE_ENV === 'production') { res.status(404).end(); return; }
-  try {
-    const { orderId } = req.body as { orderId: string };
-    if (!orderId) { res.status(400).json(err('MISSING_FIELDS', 'orderId required')); return; }
-
-    await prisma.payment.updateMany({
-      where: { orderId },
-      data: { status: 'PAID', paidAt: new Date() },
-    });
-    await prisma.order.update({ where: { id: orderId }, data: { status: 'CONFIRMED' } });
-
-    res.json(ok({ success: true }));
-  } catch (e) {
-    next(e);
-  }
-});

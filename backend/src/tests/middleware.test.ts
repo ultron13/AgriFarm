@@ -32,7 +32,7 @@ describe('authenticate middleware', () => {
   });
 
   it('attaches user and calls next with valid token', () => {
-    const token = jwt.sign({ sub: 'user-1', role: 'FARMER' }, 'dev-secret');
+    const token = jwt.sign({ sub: 'user-1', role: 'FARMER' }, 'test-secret');
     const req = { headers: { authorization: `Bearer ${token}` } } as Request;
     const res = mockRes();
     const next = mockNext();

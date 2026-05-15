@@ -1,8 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { JwtPayload, AuthenticatedRequest, err } from '../types';
-
-const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret';
+import { JWT_SECRET } from '../lib/jwt-secret';
 
 export function authenticate(req: Request, res: Response, next: NextFunction): void {
   const header = req.headers.authorization;
@@ -13,7 +12,7 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
 
   const token = header.slice(7);
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as JwtPayload;
+    const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as JwtPayload;
     (req as AuthenticatedRequest).user = payload;
     next();
   } catch {

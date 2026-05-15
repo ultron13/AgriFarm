@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { UserRole } from '@prisma/client';
 
-const JWT_SECRET = 'dev-secret';
+const JWT_SECRET = 'test-secret';
 
 export function makeToken(sub: string, role: UserRole): string {
   return jwt.sign({ sub, role }, JWT_SECRET, { expiresIn: '1h' });

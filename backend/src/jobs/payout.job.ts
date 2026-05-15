@@ -32,7 +32,7 @@ export function startPayoutWorker() {
       } else {
         pspRef = await initiatePayout({
           reference: payout.id,
-          amount: Number(payout.netAmount),
+          amount: parseFloat(payout.netAmount.toFixed(2)),
           currency: 'ZAR',
           beneficiaryAccountRef: payout.farmer.bankAccountRef ?? '',
           beneficiaryName: payout.farmer.displayName,
@@ -52,7 +52,7 @@ export function startPayoutWorker() {
             to: user.phone,
             templateId: 'payout_processed',
             variables: {
-              amount: `R${Number(payout.netAmount).toFixed(2)}`,
+              amount: `R${payout.netAmount.toFixed(2)}`,
               reference: pspRef,
             },
           });
