@@ -2,12 +2,14 @@ import 'dotenv/config';
 import { logger } from './lib/logger';
 import { startPayoutWorker } from './jobs/payout.job';
 import { startNotificationWorker } from './jobs/notification.job';
+import { startInvoiceWorker } from './jobs/invoice.job';
 
 logger.info('Starting FarmConnect background workers');
 
 const workers = [
   startPayoutWorker(),
   startNotificationWorker(),
+  startInvoiceWorker(),
 ];
 
 process.on('SIGTERM', async () => {
