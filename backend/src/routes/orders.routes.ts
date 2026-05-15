@@ -6,6 +6,7 @@ import { validateBody } from '../middleware/validate';
 import { prisma } from '../lib/prisma';
 import { ok, err, paginate, AuthenticatedRequest } from '../types';
 import { OrderService } from '../services/order.service';
+import { audit } from '../lib/audit';
 
 export const ordersRouter = Router();
 
@@ -19,6 +20,7 @@ const createOrderSchema = z.object({
   deliveryDate: z.string().datetime(),
   notes: z.string().optional(),
   source: z.enum(['WEB', 'WHATSAPP', 'FIELD_AGENT', 'API']).default('WEB'),
+  buyerId: z.string().optional(), // ADMIN/SUPER_ADMIN only — create on behalf of a buyer
 });
 
 ordersRouter.get('/', authenticate, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -99,13 +101,21 @@ ordersRouter.post(
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const body = req.body as z.infer<typeof createOrderSchema>;
-      const buyer = await prisma.buyer.findUnique({ where: { userId: req.user.sub } });
-      if (!buyer) {
-        res.status(404).json(err('NOT_FOUND', 'Buyer profile not found'));
-        return;
+      const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(req.user.role);
+
+      let buyerId: string;
+      if (isAdmin && body.buyerId) {
+        buyerId = body.buyerId;
+      } else {
+        const buyer = await prisma.buyer.findUnique({ where: { userId: req.user.sub } });
+        if (!buyer) {
+          res.status(404).json(err('NOT_FOUND', 'Buyer profile not found'));
+          return;
+        }
+        buyerId = buyer.id;
       }
 
-      const order = await OrderService.createOrder(buyer.id, body);
+      const order = await OrderService.createOrder(buyerId, body, req.user.sub);
       res.status(201).json(ok(order));
     } catch (e) {
       next(e);
@@ -119,7 +129,7 @@ ordersRouter.post(
   requireRole(['BUYER', 'LOGISTICS_COORDINATOR', 'ADMIN', 'SUPER_ADMIN']),
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const order = await OrderService.confirmDelivery(req.params.id);
+      const order = await OrderService.confirmDelivery(req.params.id, req.user.sub);
       res.json(ok(order));
     } catch (e) {
       next(e);
@@ -175,6 +185,8 @@ ordersRouter.post(
         }),
       ]);
 
+      await audit({ userId: req.user.sub, action: 'ORDER_DISPUTED', resourceType: 'Order', resourceId: order.id, after: { reason }, ip: req.ip });
+
       res.json(ok(updated));
     } catch (e) { next(e); }
   }
@@ -198,6 +210,9 @@ ordersRouter.patch(
         data: { status: status as never },
         include: { buyer: { select: { displayName: true, buyerType: true } }, items: { include: { listing: { include: { product: true } } } }, delivery: true, payment: true },
       });
+
+      await audit({ userId: req.user.sub, action: 'ORDER_STATUS_CHANGED', resourceType: 'Order', resourceId: order.id, after: { status }, ip: req.ip });
+
       res.json(ok(order));
     } catch (e) {
       next(e);

@@ -5,6 +5,7 @@ import { requireRole } from '../middleware/requireRole';
 import { validateBody, validateQuery } from '../middleware/validate';
 import { prisma } from '../lib/prisma';
 import { ok, err, paginate, AuthenticatedRequest } from '../types';
+import { audit } from '../lib/audit';
 
 export const tendersRouter = Router();
 
@@ -222,6 +223,8 @@ tendersRouter.patch('/:id/bids/:bidId', authenticate, requireRole(['GOV_BUYER', 
         data: { status: 'AWARDED', awardedBidId: bid.id },
       });
     }
+
+    await audit({ userId: req.user.sub, action: status === 'AWARDED' ? 'BID_AWARDED' : 'BID_STATUS_CHANGED', resourceType: 'TenderBid', resourceId: bid.id, after: { status, tenderId: req.params.id }, ip: req.ip });
 
     res.json(ok(updated));
   } catch (e) { next(e); }

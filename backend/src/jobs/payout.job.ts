@@ -17,8 +17,16 @@ export function startPayoutWorker() {
         include: { farmer: true },
       });
 
-      if (payout.status !== 'PENDING') {
-        logger.info({ payoutId }, 'Payout already processed — skipping');
+      // Stalled-job recovery: worker crashed after calling the PSP but before persisting PAID.
+      // pspReference being set proves the bank transfer already went out — skip the PSP call.
+      if (payout.status === 'PROCESSING' && payout.pspReference) {
+        logger.warn({ payoutId, pspRef: payout.pspReference }, 'Stalled job recovery — PSP ref found, marking PAID');
+        await prisma.payout.update({ where: { id: payoutId }, data: { status: 'PAID', paidAt: new Date() } });
+        return;
+      }
+
+      if (payout.status !== 'PENDING' && payout.status !== 'PROCESSING') {
+        logger.info({ payoutId }, 'Payout already settled — skipping');
         return;
       }
 
@@ -39,10 +47,11 @@ export function startPayoutWorker() {
         });
       }
 
-      await prisma.payout.update({
-        where: { id: payoutId },
-        data: { status: 'PAID', pspReference: pspRef, paidAt: new Date() },
-      });
+      // Persist pspReference BEFORE marking PAID.  If the process crashes between these
+      // two writes the stalled-recovery path above will find pspReference set and skip
+      // a duplicate PSP call on the next attempt.
+      await prisma.payout.update({ where: { id: payoutId }, data: { pspReference: pspRef } });
+      await prisma.payout.update({ where: { id: payoutId }, data: { status: 'PAID', paidAt: new Date() } });
 
       if (payout.farmer.id) {
         const user = await prisma.user.findUnique({ where: { id: payout.farmer.userId } });

@@ -4,6 +4,10 @@ import { logger } from './logger';
 const CLIENT_ID = process.env.STITCH_CLIENT_ID ?? '';
 const CLIENT_SECRET = process.env.STITCH_CLIENT_SECRET ?? '';
 const WEBHOOK_SECRET = process.env.STITCH_WEBHOOK_SECRET ?? '';
+
+if (!WEBHOOK_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('STITCH_WEBHOOK_SECRET env var is required in production — set it before starting the server');
+}
 const BASE_URL = 'https://api.stitch.money';
 
 let cachedToken: { token: string; expiresAt: number } | null = null;

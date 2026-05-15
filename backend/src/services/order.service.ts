@@ -2,6 +2,7 @@ import { randomBytes } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { payoutsQueue, notificationsQueue, invoicesQueue } from '../jobs/queues';
+import { audit } from '../lib/audit';
 
 const LOGISTICS_COST_PER_KG = new Prisma.Decimal('4.5');
 const BUYER_COMMISSION = new Prisma.Decimal('0.08');
@@ -15,7 +16,7 @@ interface CreateOrderInput {
 }
 
 export const OrderService = {
-  async createOrder(buyerId: string, input: CreateOrderInput) {
+  async createOrder(buyerId: string, input: CreateOrderInput, actorId = 'system') {
     const listings = await Promise.all(
       input.items.map((i) =>
         prisma.produceListing.findUniqueOrThrow({
@@ -163,6 +164,8 @@ export const OrderService = {
       return { order: o, invoiceId: inv.id };
     });
 
+    await audit({ userId: actorId, action: 'ORDER_CREATED', resourceType: 'Order', resourceId: order.id });
+
     await invoicesQueue.add('generate_invoice', { invoiceId, orderId: order.id });
 
     await notificationsQueue.add('order_placed', {
@@ -175,10 +178,10 @@ export const OrderService = {
     return order;
   },
 
-  async confirmDelivery(orderId: string) {
+  async confirmDelivery(orderId: string, actorId = 'system') {
     const order = await prisma.order.findUniqueOrThrow({
       where: { id: orderId },
-      include: { items: { include: { listing: { include: { farmer: true } } } }, buyer: true },
+      include: { items: { include: { listing: { include: { farmer: true } } } }, buyer: true, payment: true },
     });
 
     if (['DELIVERED', 'CANCELLED', 'REFUNDED', 'DISPUTED'].includes(order.status)) {
@@ -194,6 +197,8 @@ export const OrderService = {
     const payoutDelay = IS_MOCK ? 5_000 : 48 * 60 * 60 * 1000;
     const scheduledFor = new Date(Date.now() + (IS_MOCK ? 0 : 48 * 60 * 60 * 1000));
 
+    await audit({ userId: actorId, action: 'ORDER_DELIVERED', resourceType: 'Order', resourceId: orderId });
+
     const farmerPayouts = new Map<string, { farmerId: string; gross: Prisma.Decimal }>();
     for (const item of order.items) {
       const farmerId = item.listing.farmerId;
@@ -205,10 +210,16 @@ export const OrderService = {
 
     for (const [, { farmerId, gross }] of farmerPayouts) {
       const commission = gross.mul(SELLER_COMMISSION);
+      const net = gross.sub(commission);
       const payout = await prisma.payout.create({
-        data: { orderId, farmerId, grossAmount: gross, commission, netAmount: gross.sub(commission), scheduledFor },
+        data: { orderId, farmerId, grossAmount: gross, commission, netAmount: net, scheduledFor },
       });
-      await payoutsQueue.add('process_payout', { payoutId: payout.id }, { delay: payoutDelay });
+      // Only schedule the bank transfer once the buyer's payment is confirmed.
+      // If payment arrives after delivery, the Ozow webhook will enqueue the job.
+      if (order.payment?.status === 'PAID') {
+        await payoutsQueue.add('process_payout', { payoutId: payout.id }, { delay: payoutDelay });
+      }
+      await audit({ userId: 'system', action: 'PAYOUT_CREATED', resourceType: 'Payout', resourceId: payout.id ?? '', after: { farmerId, netAmount: net.toFixed(2) } });
     }
 
     return updated;

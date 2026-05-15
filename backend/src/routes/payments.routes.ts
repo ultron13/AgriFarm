@@ -25,6 +25,14 @@ paymentsRouter.post(
 
       const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId } });
 
+      if (req.user.role === 'BUYER') {
+        const buyer = await prisma.buyer.findUnique({ where: { userId: req.user.sub } });
+        if (!buyer || order.buyerId !== buyer.id) {
+          res.status(403).json(err('FORBIDDEN', 'You can only initiate payment for your own orders'));
+          return;
+        }
+      }
+
       const payment = await prisma.payment.upsert({
         where: { orderId },
         update: {},

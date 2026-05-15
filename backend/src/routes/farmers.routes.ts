@@ -30,11 +30,12 @@ const onboardFarmerSchema = z.object({
   organizationId: z.string().min(1).optional(),
 });
 
-farmersRouter.get('/', authenticate, requireRole(['ADMIN', 'SUPER_ADMIN', 'SALES_REP', 'FIELD_AGENT', 'LOGISTICS_COORDINATOR']), async (req, res: Response, next: NextFunction) => {
+farmersRouter.get('/', authenticate, requireRole(['ADMIN', 'SUPER_ADMIN', 'SALES_REP', 'FIELD_AGENT', 'LOGISTICS_COORDINATOR']), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { skip, take, page, perPage } = paginate(req.query);
     const province = req.query.province as string | undefined;
     const isSmallholder = req.query.isSmallholder === 'true' ? true : undefined;
+    const canSeePII = ['ADMIN', 'SUPER_ADMIN'].includes(req.user.role);
 
     const where = { deletedAt: null, ...(province && { province: province as never }), ...(isSmallholder !== undefined && { isSmallholder }) };
     const [farmers, total] = await Promise.all([
@@ -42,7 +43,8 @@ farmersRouter.get('/', authenticate, requireRole(['ADMIN', 'SUPER_ADMIN', 'SALES
         where, skip, take,
         include: {
           organization: true,
-          user: { select: { email: true, phone: true } },
+          // Only ADMIN/SUPER_ADMIN have need-to-know for contact details (POPIA)
+          ...(canSeePII && { user: { select: { email: true, phone: true } } }),
           _count: { select: { listings: { where: { status: 'ACTIVE', deletedAt: null } } } },
         },
       }),

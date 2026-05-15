@@ -476,6 +476,7 @@ model Payout {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
+  @@unique([orderId, farmerId])
   @@index([status, scheduledFor])
   @@index([farmerId])
 }

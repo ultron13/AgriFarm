@@ -1,9 +1,35 @@
 import { Router, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import { authenticate } from '../middleware/authenticate';
 import { requireRole } from '../middleware/requireRole';
+import { validateBody } from '../middleware/validate';
 import { prisma } from '../lib/prisma';
-import { ok, err } from '../types';
+import { ok, err, AuthenticatedRequest } from '../types';
 import { OrderService } from '../services/order.service';
+
+const createDeliverySchema = z.object({
+  orderId: z.string().min(1),
+  routeId: z.string().optional(),
+  vehicleRef: z.string().optional(),
+  driverName: z.string().optional(),
+  driverPhone: z.string().optional(),
+  collectionAt: z.string().datetime().optional(),
+  trackingUrl: z.string().optional(),
+  proofOfDelivery: z.string().optional(),
+}).strict();
+
+const updateDeliverySchema = z.object({
+  status: z.enum(['SCHEDULED', 'COLLECTED', 'AT_HUB', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'RETURNED']).optional(),
+  routeId: z.string().optional(),
+  vehicleRef: z.string().optional(),
+  driverName: z.string().optional(),
+  driverPhone: z.string().optional(),
+  collectionAt: z.string().datetime().optional(),
+  hubArrivalAt: z.string().datetime().optional(),
+  deliveredAt: z.string().datetime().optional(),
+  trackingUrl: z.string().optional(),
+  proofOfDelivery: z.string().optional(),
+}).strict();
 
 export const logisticsRouter = Router();
 
@@ -33,19 +59,20 @@ logisticsRouter.get('/routes/:id/deliveries', authenticate, requireRole(['ADMIN'
   } catch (e) { next(e); }
 });
 
-logisticsRouter.post('/deliveries', authenticate, requireRole(['ADMIN', 'SUPER_ADMIN', 'LOGISTICS_COORDINATOR']), async (req, res: Response, next: NextFunction) => {
+logisticsRouter.post('/deliveries', authenticate, requireRole(['ADMIN', 'SUPER_ADMIN', 'LOGISTICS_COORDINATOR']), validateBody(createDeliverySchema), async (req, res: Response, next: NextFunction) => {
   try {
-    const delivery = await prisma.delivery.create({ data: req.body });
+    const delivery = await prisma.delivery.create({ data: req.body as z.infer<typeof createDeliverySchema> });
     res.status(201).json(ok(delivery));
   } catch (e) { next(e); }
 });
 
-logisticsRouter.patch('/deliveries/:id', authenticate, requireRole(['ADMIN', 'SUPER_ADMIN', 'LOGISTICS_COORDINATOR']), async (req, res: Response, next: NextFunction) => {
+logisticsRouter.patch('/deliveries/:id', authenticate, requireRole(['ADMIN', 'SUPER_ADMIN', 'LOGISTICS_COORDINATOR']), validateBody(updateDeliverySchema), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    const delivery = await prisma.delivery.update({ where: { id: req.params.id }, data: req.body });
+    const body = req.body as z.infer<typeof updateDeliverySchema>;
+    const delivery = await prisma.delivery.update({ where: { id: req.params.id }, data: body });
 
-    if (req.body.status === 'DELIVERED') {
-      await OrderService.confirmDelivery(delivery.orderId);
+    if (body.status === 'DELIVERED') {
+      await OrderService.confirmDelivery(delivery.orderId, req.user.sub);
     }
 
     res.json(ok(delivery));

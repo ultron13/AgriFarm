@@ -5,6 +5,8 @@ import { verifyWebhookSignature as verifyOzow } from '../lib/ozow';
 import { verifyWebhookSignature as verifyStitch } from '../lib/stitch';
 import { WhatsAppService } from '../services/whatsapp.service';
 import { logger } from '../lib/logger';
+import { audit } from '../lib/audit';
+import { payoutsQueue } from '../jobs/queues';
 
 export const webhooksRouter = Router();
 
@@ -43,6 +45,17 @@ webhooksRouter.post('/ozow', async (req: Request, res: Response) => {
 
     if (isPaid) {
       await prisma.order.update({ where: { id: orderId }, data: { status: 'CONFIRMED' } });
+
+      // If the order was already delivered before payment arrived, schedule any
+      // payout jobs that confirmDelivery held back pending payment.
+      const pendingPayouts = await prisma.payout.findMany({ where: { orderId, status: 'PENDING' } });
+      if (pendingPayouts.length > 0) {
+        const IS_MOCK = process.env.NODE_ENV !== 'production';
+        const delay = IS_MOCK ? 5_000 : 48 * 60 * 60 * 1000;
+        await Promise.all(pendingPayouts.map(p => payoutsQueue.add('process_payout', { payoutId: p.id }, { delay })));
+      }
+
+      await audit({ userId: 'webhook:ozow', action: 'PAYMENT_CONFIRMED', resourceType: 'Payment', resourceId: data.TransactionId, after: { orderId, pspReference: data.TransactionId } });
     }
 
     res.sendStatus(200);
@@ -79,11 +92,13 @@ webhooksRouter.post('/stitch', async (req: Request, res: Response) => {
         where: { pspReference: data.data.payoutId },
         data: { status: 'PAID', paidAt: new Date() },
       });
+      await audit({ userId: 'webhook:stitch', action: 'PAYOUT_COMPLETED', resourceType: 'Payout', resourceId: data.data.payoutId });
     } else if (data.type === 'payout.failed') {
       await prisma.payout.updateMany({
         where: { pspReference: data.data.payoutId },
         data: { status: 'FAILED' },
       });
+      await audit({ userId: 'webhook:stitch', action: 'PAYOUT_FAILED', resourceType: 'Payout', resourceId: data.data.payoutId });
     }
 
     res.sendStatus(200);
@@ -95,6 +110,18 @@ webhooksRouter.post('/stitch', async (req: Request, res: Response) => {
 
 // Clickatell inbound MO webhook — Clickatell sends { moMessage: { from, content, ... } }
 webhooksRouter.post('/whatsapp', async (req: Request, res: Response) => {
+  // Verify shared secret when configured (set WHATSAPP_WEBHOOK_TOKEN in prod).
+  // Clickatell passes the token in the x-clickatell-token header or as ?token= query param.
+  const WHATSAPP_TOKEN = process.env.WHATSAPP_WEBHOOK_TOKEN;
+  if (WHATSAPP_TOKEN) {
+    const provided = (req.headers['x-clickatell-token'] as string | undefined) ?? (req.query.token as string | undefined);
+    if (!provided || provided !== WHATSAPP_TOKEN) {
+      logger.warn('WhatsApp webhook token verification failed');
+      res.sendStatus(401);
+      return;
+    }
+  }
+
   res.sendStatus(200); // Acknowledge immediately
 
   try {

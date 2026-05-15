@@ -18,7 +18,6 @@ export interface ApiResponse<T> {
 
 export interface AuthUser {
   userId: string;
-  token: string;
   role: UserRole;
 }
 

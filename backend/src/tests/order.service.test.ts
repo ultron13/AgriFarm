@@ -292,6 +292,7 @@ describe('OrderService.confirmDelivery', () => {
           { farmGatePrice: new Prisma.Decimal('8'),  quantityKg: new Prisma.Decimal('50'),  listing: { farmerId: 'farmer-2', farmer: { id: 'farmer-2' } } },
         ],
         buyer: {},
+        payment: { status: 'PAID' },
       } as any);
       mockOrder.update.mockResolvedValue({ id: 'order-1', status: 'DELIVERED' } as any);
       mockPayout.create.mockResolvedValue({ id: 'payout-1' } as any);

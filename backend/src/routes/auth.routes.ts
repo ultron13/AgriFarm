@@ -1,4 +1,4 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Request, Response, NextFunction, CookieOptions } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -35,6 +35,17 @@ import { JWT_SECRET } from '../lib/jwt-secret';
 export const authRouter = Router();
 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN ?? '7d';
+const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days, matching default JWT expiry
+
+function tokenCookieOptions(): CookieOptions {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: COOKIE_MAX_AGE_MS,
+    path: '/',
+  };
+}
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -63,6 +74,7 @@ authRouter.post('/register', registerLimiter, validateBody(registerSchema), asyn
     const user = await prisma.user.create({ data: { email, phone, passwordHash, role } });
 
     const token = jwt.sign({ sub: user.id, role: user.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions);
+    res.cookie('fc_token', token, tokenCookieOptions());
     res.status(201).json(ok({ userId: user.id, token, role: user.role }));
   } catch (e) {
     next(e);
@@ -82,8 +94,14 @@ authRouter.post('/login', loginLimiter, validateBody(loginSchema), async (req: R
     await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
     const token = jwt.sign({ sub: user.id, role: user.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions);
+    res.cookie('fc_token', token, tokenCookieOptions());
     res.json(ok({ userId: user.id, token, role: user.role }));
   } catch (e) {
     next(e);
   }
+});
+
+authRouter.post('/logout', (_req: Request, res: Response) => {
+  res.clearCookie('fc_token', { path: '/' });
+  res.json(ok({ loggedOut: true }));
 });

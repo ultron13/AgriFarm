@@ -1,11 +1,11 @@
 import type { AuthUser } from '@/types';
 
-const TOKEN_KEY = 'fc_token';
 const USER_KEY = 'fc_user';
 
 export function saveAuth(auth: AuthUser): void {
-  localStorage.setItem(TOKEN_KEY, auth.token);
-  localStorage.setItem(USER_KEY, JSON.stringify(auth));
+  // Store only non-sensitive identity info. The JWT lives in the httpOnly cookie
+  // set by the server — never in localStorage.
+  localStorage.setItem(USER_KEY, JSON.stringify({ userId: auth.userId, role: auth.role }));
 }
 
 export function getAuth(): AuthUser | null {
@@ -15,7 +15,6 @@ export function getAuth(): AuthUser | null {
 }
 
 export function clearAuth(): void {
-  localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
 }
 

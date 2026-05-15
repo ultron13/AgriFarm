@@ -25,6 +25,47 @@ services:
       interval: 10s
       retries: 5
 
+  backend:
+    build:
+      context: ./backend
+      target: production
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgres://farmconnect:farmconnect@postgres:5432/farmconnect_dev
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
+
+  worker:
+    build:
+      context: ./backend
+      target: production
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgres://farmconnect:farmconnect@postgres:5432/farmconnect_dev
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["node", "dist/worker.js"]
+
+  frontend:
+    build:
+      context: ./frontend
+      target: production
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
 volumes:
   pgdata:
   redisdata:

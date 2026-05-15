@@ -26,7 +26,8 @@ export function useAuth() {
     return res;
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try { await api.post('/auth/logout', {}); } catch { /* ignore network errors on logout */ }
     clearAuth();
     setUser(null);
     navigate('/login');
