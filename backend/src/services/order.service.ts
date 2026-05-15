@@ -3,10 +3,11 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { payoutsQueue, notificationsQueue, invoicesQueue } from '../jobs/queues';
 import { audit } from '../lib/audit';
+import { BUYER_COMMISSION_RATE, SELLER_COMMISSION_RATE } from '../lib/constants';
 
 const LOGISTICS_COST_PER_KG = new Prisma.Decimal('4.5');
-const BUYER_COMMISSION = new Prisma.Decimal('0.08');
-const SELLER_COMMISSION = new Prisma.Decimal('0.05');
+const BUYER_COMMISSION = new Prisma.Decimal(String(BUYER_COMMISSION_RATE));
+const SELLER_COMMISSION = new Prisma.Decimal(String(SELLER_COMMISSION_RATE));
 
 interface CreateOrderInput {
   items: Array<{ listingId: string; quantityKg: number }>;

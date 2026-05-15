@@ -1,0 +1,2 @@
+export const BUYER_COMMISSION_RATE = 0.08;
+export const SELLER_COMMISSION_RATE = 0.05;

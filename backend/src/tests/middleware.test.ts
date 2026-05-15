@@ -90,6 +90,32 @@ describe('errorHandler middleware', () => {
     expect(res.status).toHaveBeenCalledWith(422);
   });
 
+  it('returns 404 for Prisma P2025 (record not found)', () => {
+    const { PrismaClientKnownRequestError } = require('@prisma/client/runtime/library');
+    const prismaErr = new PrismaClientKnownRequestError('Record not found', { code: 'P2025', clientVersion: '5.0.0' });
+    const req = { path: '/', method: 'GET' } as Request;
+    const res = mockRes();
+    errorHandler(prismaErr, req, res, mockNext());
+    expect(res.status).toHaveBeenCalledWith(404);
+  });
+
+  it('returns 409 for Prisma P2002 (unique constraint)', () => {
+    const { PrismaClientKnownRequestError } = require('@prisma/client/runtime/library');
+    const prismaErr = new PrismaClientKnownRequestError('Unique constraint failed', { code: 'P2002', clientVersion: '5.0.0' });
+    const req = { path: '/', method: 'POST' } as Request;
+    const res = mockRes();
+    errorHandler(prismaErr, req, res, mockNext());
+    expect(res.status).toHaveBeenCalledWith(409);
+  });
+
+  it('returns custom statusCode for errors with statusCode property', () => {
+    const customErr = Object.assign(new Error('Not authorized'), { statusCode: 403, code: 'FORBIDDEN' });
+    const req = { path: '/', method: 'GET' } as Request;
+    const res = mockRes();
+    errorHandler(customErr, req, res, mockNext());
+    expect(res.status).toHaveBeenCalledWith(403);
+  });
+
   it('returns 500 for unknown errors', () => {
     const req = { path: '/', method: 'GET' } as Request;
     const res = mockRes();

@@ -2,10 +2,11 @@ import { redis } from '../lib/redis';
 import { prisma } from '../lib/prisma';
 import { OrderService } from './order.service';
 import { logger } from '../lib/logger';
+import { BUYER_COMMISSION_RATE } from '../lib/constants';
 
 const SESSION_TTL_SECS = 1800; // 30 minutes of inactivity
 const LOGISTICS_COST_PER_KG = 4.5;
-const BUYER_COMMISSION = 0.08;
+const BUYER_COMMISSION = BUYER_COMMISSION_RATE;
 
 type ConversationState = 'WELCOME' | 'MENU' | 'BROWSING' | 'QUANTITY' | 'DATE' | 'CONFIRMING' | 'DONE';
 

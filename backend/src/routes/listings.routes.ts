@@ -165,12 +165,12 @@ listingsRouter.post(
       let photoUrl: string;
 
       if (process.env.R2_ACCOUNT_ID) {
-        const uploadUrl = await getUploadUrl(key, file.mimetype);
-        await fetch(uploadUrl, { method: 'PUT', body: file.buffer, headers: { 'Content-Type': file.mimetype } });
+        const uploadUrl = await getUploadUrl(key, detected.mime);
+        await fetch(uploadUrl, { method: 'PUT', body: file.buffer, headers: { 'Content-Type': detected.mime } });
         photoUrl = publicUrl(key);
       } else {
         // Mock: store inline as data URL (demo only — fine for images up to 5 MB)
-        photoUrl = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+        photoUrl = `data:${detected.mime};base64,${file.buffer.toString('base64')}`;
       }
 
       const sortOrder = await prisma.listingPhoto.count({ where: { listingId: req.params.id } });

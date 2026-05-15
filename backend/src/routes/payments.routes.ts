@@ -5,6 +5,7 @@ import { requireRole } from '../middleware/requireRole';
 import { validateBody } from '../middleware/validate';
 import { prisma } from '../lib/prisma';
 import { createPaymentUrl, verifyWebhookSignature as verifyOzow } from '../lib/ozow';
+import { payoutsQueue } from '../jobs/queues';
 import { ok, err, AuthenticatedRequest } from '../types';
 
 export const paymentsRouter = Router();
@@ -58,6 +59,53 @@ paymentsRouter.post(
       } else {
         res.json(ok({ paymentId: payment.id, instructions: 'Payment will be collected on due date via Stitch debit' }));
       }
+    } catch (e) {
+      next(e);
+    }
+  }
+);
+
+// Mock payment completion — non-production only.
+// The frontend MockOzowPage calls this after the buyer "confirms" the fake OTP,
+// replicating what the real Ozow webhook does in production.
+const mockCompleteSchema = z.object({ orderId: z.string().min(1) });
+
+paymentsRouter.post(
+  '/mock-complete',
+  authenticate,
+  requireRole(['BUYER', 'ADMIN', 'SUPER_ADMIN']),
+  validateBody(mockCompleteSchema),
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (process.env.NODE_ENV === 'production') {
+      res.status(404).json(err('NOT_FOUND', 'Not found'));
+      return;
+    }
+    try {
+      const { orderId } = req.body as z.infer<typeof mockCompleteSchema>;
+      const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId } });
+
+      if (req.user.role === 'BUYER') {
+        const buyer = await prisma.buyer.findUnique({ where: { userId: req.user.sub } });
+        if (!buyer || order.buyerId !== buyer.id) {
+          res.status(403).json(err('FORBIDDEN', 'You can only complete payment for your own orders'));
+          return;
+        }
+      }
+
+      const mockRef = `MOCK-${Date.now()}`;
+      await prisma.payment.upsert({
+        where: { orderId },
+        create: { orderId, amount: order.deliveredPrice, method: 'INSTANT_EFT', status: 'PAID', pspReference: mockRef, paidAt: new Date(), dueDate: new Date() },
+        update: { status: 'PAID', pspReference: mockRef, paidAt: new Date() },
+      });
+      await prisma.order.update({ where: { id: orderId }, data: { status: 'CONFIRMED' } });
+
+      const pendingPayouts = await prisma.payout.findMany({ where: { orderId, status: 'PENDING' } });
+      if (pendingPayouts.length > 0) {
+        await Promise.all(pendingPayouts.map(p => payoutsQueue.add('process_payout', { payoutId: p.id }, { delay: 5_000 })));
+      }
+
+      res.json(ok({ orderId, status: 'CONFIRMED', pspReference: mockRef }));
     } catch (e) {
       next(e);
     }

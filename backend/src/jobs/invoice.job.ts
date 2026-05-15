@@ -4,6 +4,7 @@ import { redis } from '../lib/redis';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
 import type { InvoiceJobData } from './queues';
+import { BUYER_COMMISSION_RATE } from '../lib/constants';
 
 const BRAND = '#1a6b45';
 const GRAY = '#6b7280';
@@ -126,7 +127,7 @@ async function generatePdf(invoiceId: string): Promise<Buffer> {
 
     // Platform fee
     const farmGateTotal = order.items.reduce((s, i) => s + Number(i.farmGatePrice) * Number(i.quantityKg), 0);
-    const commissionAmt = farmGateTotal * 0.08;
+    const commissionAmt = farmGateTotal * BUYER_COMMISSION_RATE;
     doc.text('Platform commission (8%)', col.desc, rowY, { width: col.qty - col.desc - 8 });
     doc.text('', col.qty, rowY);
     doc.text('', col.up, rowY);

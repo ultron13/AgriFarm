@@ -42,8 +42,8 @@ export interface PaginationQuery {
 }
 
 export function paginate(query: PaginationQuery): { skip: number; take: number; page: number; perPage: number } {
-  const page = Math.max(1, parseInt(query.page ?? '1', 10));
-  const perPage = Math.min(100, Math.max(1, parseInt(query.perPage ?? '20', 10)));
+  const page = Math.max(1, parseInt(query.page ?? '1', 10) || 1);
+  const perPage = Math.min(100, Math.max(1, parseInt(query.perPage ?? '20', 10) || 20));
   return { skip: (page - 1) * perPage, take: perPage, page, perPage };
 }
 

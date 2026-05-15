@@ -93,8 +93,30 @@ qualityRouter.post(
   }
 );
 
-qualityRouter.get('/:orderId', authenticate, async (req, res: Response, next: NextFunction) => {
+qualityRouter.get('/:orderId', authenticate, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
+    const { role } = req.user;
+
+    if (role === 'BUYER') {
+      const buyer = await prisma.buyer.findUnique({ where: { userId: req.user.sub } });
+      const order = await prisma.order.findUnique({ where: { id: req.params.orderId }, select: { buyerId: true } });
+      if (!buyer || !order || order.buyerId !== buyer.id) {
+        res.status(403).json(err('FORBIDDEN', 'Access denied'));
+        return;
+      }
+    } else if (role === 'FARMER') {
+      const farmer = await prisma.farmer.findUnique({ where: { userId: req.user.sub } });
+      const order = await prisma.order.findUnique({
+        where: { id: req.params.orderId },
+        include: { items: { select: { listing: { select: { farmerId: true } } } } },
+      });
+      if (!farmer || !order || !order.items.some(i => i.listing.farmerId === farmer.id)) {
+        res.status(403).json(err('FORBIDDEN', 'Access denied'));
+        return;
+      }
+    }
+    // ADMIN, SUPER_ADMIN, FIELD_AGENT have unrestricted access
+
     const check = await prisma.qualityCheck.findFirst({
       where: { orderId: req.params.orderId },
       include: { photos: true, fieldAgent: { select: { email: true } } },

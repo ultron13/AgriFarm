@@ -71,6 +71,46 @@ describe('POST /api/v1/payments/initiate', () => {
   });
 });
 
+describe('POST /api/v1/payments/mock-complete', () => {
+  const body = { orderId: 'order-1' };
+
+  it('requires authentication', async () => {
+    const res = await request(app).post('/api/v1/payments/mock-complete').send(body);
+    expect(res.status).toBe(401);
+  });
+
+  it('requires BUYER or ADMIN role', async () => {
+    const res = await request(app).post('/api/v1/payments/mock-complete').set(farmerToken).send(body);
+    expect(res.status).toBe(403);
+  });
+
+  it('completes payment for ADMIN', async () => {
+    mockOrder.findUniqueOrThrow.mockResolvedValue({ id: 'order-1', buyerId: 'b1', deliveredPrice: 5000, paymentDueDate: null } as any);
+    mockPayment.upsert.mockResolvedValue({ id: 'pay-1' } as any);
+    mockOrder.update.mockResolvedValue({ id: 'order-1', status: 'CONFIRMED' } as any);
+    vi.mocked(prisma.payout.findMany).mockResolvedValue([]);
+    const res = await request(app).post('/api/v1/payments/mock-complete').set(adminToken).send(body);
+    expect(res.status).toBe(200);
+    expect(res.body.data.status).toBe('CONFIRMED');
+  });
+
+  it('returns 403 when BUYER tries to complete another buyer order', async () => {
+    mockOrder.findUniqueOrThrow.mockResolvedValue({ id: 'order-1', buyerId: 'other-buyer', deliveredPrice: 5000, paymentDueDate: null } as any);
+    mockBuyer.findUnique.mockResolvedValue({ id: 'my-buyer' } as any);
+    const res = await request(app).post('/api/v1/payments/mock-complete').set(buyerToken).send(body);
+    expect(res.status).toBe(403);
+  });
+
+  it('schedules payouts when pending payouts exist', async () => {
+    mockOrder.findUniqueOrThrow.mockResolvedValue({ id: 'order-1', buyerId: 'b1', deliveredPrice: 5000 } as any);
+    mockPayment.upsert.mockResolvedValue({ id: 'pay-1' } as any);
+    mockOrder.update.mockResolvedValue({ id: 'order-1', status: 'CONFIRMED' } as any);
+    vi.mocked(prisma.payout.findMany).mockResolvedValue([{ id: 'payout-1' }] as any);
+    const res = await request(app).post('/api/v1/payments/mock-complete').set(adminToken).send(body);
+    expect(res.status).toBe(200);
+  });
+});
+
 describe('GET /api/v1/payments/:orderId', () => {
   it('requires authentication', async () => {
     const res = await request(app).get('/api/v1/payments/order-1');

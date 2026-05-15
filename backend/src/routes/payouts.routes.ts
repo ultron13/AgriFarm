@@ -7,7 +7,7 @@ import { ok, err, paginate, AuthenticatedRequest } from '../types';
 
 export const payoutsRouter = Router();
 
-payoutsRouter.get('/', authenticate, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+payoutsRouter.get('/', authenticate, requireRole(['FARMER', 'ADMIN', 'SUPER_ADMIN']), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { skip, take, page, perPage } = paginate(req.query);
     const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(req.user.role);
@@ -16,6 +16,10 @@ payoutsRouter.get('/', authenticate, async (req: AuthenticatedRequest, res: Resp
     if (!isAdmin) {
       const farmer = await prisma.farmer.findUnique({ where: { userId: req.user.sub } });
       farmerId = farmer?.id;
+      if (!farmerId) {
+        res.json(ok([], { page, perPage, total: 0 }));
+        return;
+      }
     }
 
     const where = { ...(farmerId && { farmerId }), ...(req.query.status && { status: req.query.status as never }) };

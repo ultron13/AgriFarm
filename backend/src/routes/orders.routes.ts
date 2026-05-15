@@ -17,7 +17,7 @@ const orderItemSchema = z.object({
 
 const createOrderSchema = z.object({
   items: z.array(orderItemSchema).min(1),
-  deliveryDate: z.string().datetime(),
+  deliveryDate: z.string().datetime().refine((d) => new Date(d) > new Date(), 'Delivery date must be in the future'),
   notes: z.string().optional(),
   source: z.enum(['WEB', 'WHATSAPP', 'FIELD_AGENT', 'API']).default('WEB'),
   buyerId: z.string().optional(), // ADMIN/SUPER_ADMIN only — create on behalf of a buyer
@@ -129,6 +129,14 @@ ordersRouter.post(
   requireRole(['BUYER', 'LOGISTICS_COORDINATOR', 'ADMIN', 'SUPER_ADMIN']),
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
+      if (req.user.role === 'BUYER') {
+        const buyer = await prisma.buyer.findUnique({ where: { userId: req.user.sub } });
+        const order = await prisma.order.findUnique({ where: { id: req.params.id }, select: { buyerId: true } });
+        if (!buyer || !order || order.buyerId !== buyer.id) {
+          res.status(403).json(err('FORBIDDEN', 'You can only confirm delivery of your own orders'));
+          return;
+        }
+      }
       const order = await OrderService.confirmDelivery(req.params.id, req.user.sub);
       res.json(ok(order));
     } catch (e) {

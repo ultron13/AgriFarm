@@ -1,5 +1,9 @@
 import { execSync } from 'child_process';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Re-seed the database before every Playwright run so tests always start from
 // a known state. The demo seed uses upsert with stable IDs, so it restores

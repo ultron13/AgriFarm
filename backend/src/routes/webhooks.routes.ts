@@ -110,10 +110,16 @@ webhooksRouter.post('/stitch', async (req: Request, res: Response) => {
 
 // Clickatell inbound MO webhook — Clickatell sends { moMessage: { from, content, ... } }
 webhooksRouter.post('/whatsapp', async (req: Request, res: Response) => {
-  // Verify shared secret when configured (set WHATSAPP_WEBHOOK_TOKEN in prod).
-  // Clickatell passes the token in the x-clickatell-token header or as ?token= query param.
   const WHATSAPP_TOKEN = process.env.WHATSAPP_WEBHOOK_TOKEN;
-  if (WHATSAPP_TOKEN) {
+  if (!WHATSAPP_TOKEN) {
+    // In production the token is mandatory — reject without it to prevent unauthenticated injection.
+    // In development/staging it is optional so local testing works without the secret.
+    if (process.env.NODE_ENV === 'production') {
+      logger.warn('WhatsApp webhook rejected — WHATSAPP_WEBHOOK_TOKEN not configured in production');
+      res.sendStatus(401);
+      return;
+    }
+  } else {
     const provided = (req.headers['x-clickatell-token'] as string | undefined) ?? (req.query.token as string | undefined);
     if (!provided || provided !== WHATSAPP_TOKEN) {
       logger.warn('WhatsApp webhook token verification failed');

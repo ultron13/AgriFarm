@@ -5,12 +5,12 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-COPY tsconfig.json ./
+COPY tsconfig.json tsconfig.seed.json ./
 COPY prisma ./prisma
 COPY src ./src
 
 RUN npx prisma generate
-RUN npm run build
+RUN npm run build && npx tsc -p tsconfig.seed.json
 
 # ── Stage 2: production ────────────────────────────────────────────────────────
 FROM node:22-alpine AS production
