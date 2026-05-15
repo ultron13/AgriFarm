@@ -15,7 +15,13 @@ const createCheckSchema = z.object({
   quantityKg: z.number().positive(),
   rejectedKg: z.number().min(0).default(0),
   notes: z.string().optional(),
-  photos: z.array(z.string()).min(3, 'Minimum 3 photos required'),
+  // Keys must be safe path segments: no traversal sequences, no leading slash,
+  // only alphanumeric/hyphen/underscore/slash chars, must end with an extension.
+  photos: z.array(
+    z.string()
+      .max(200)
+      .regex(/^(?!.*\.\.)[a-zA-Z0-9_\-][a-zA-Z0-9_\-/]*\.[a-zA-Z0-9]{2,5}$/, 'Invalid R2 key')
+  ).min(3, 'Minimum 3 photos required'),
 });
 
 qualityRouter.get(
