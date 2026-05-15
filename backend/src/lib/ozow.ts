@@ -5,8 +5,8 @@ const SITE_CODE = process.env.OZOW_SITE_CODE ?? '';
 const PRIVATE_KEY = process.env.OZOW_PRIVATE_KEY ?? '';
 const WEBHOOK_SECRET = process.env.OZOW_WEBHOOK_SECRET ?? '';
 
-if (!WEBHOOK_SECRET && process.env.NODE_ENV === 'production') {
-  throw new Error('OZOW_WEBHOOK_SECRET env var is required in production — set it before starting the server');
+if (SITE_CODE && !WEBHOOK_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('OZOW_WEBHOOK_SECRET env var is required in production when OZOW_SITE_CODE is set');
 }
 const IS_TEST = process.env.OZOW_IS_TEST === 'true';
 const BASE_URL = IS_TEST ? 'https://stagingapi.ozow.com' : 'https://api.ozow.com';
