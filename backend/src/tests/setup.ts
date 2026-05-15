@@ -9,13 +9,15 @@ vi.mock('../lib/prisma', () => {
     buyer: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn() },
     tender: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), count: vi.fn() },
     tenderBid: { create: vi.fn(), update: vi.fn(), findUnique: vi.fn() },
-    payout: { create: vi.fn(), updateMany: vi.fn(), findMany: vi.fn().mockResolvedValue([]), findUnique: vi.fn() },
+    payout: { create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), findMany: vi.fn().mockResolvedValue([]), findUnique: vi.fn(), count: vi.fn() },
     complianceDoc: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), upsert: vi.fn() },
-    produceListing: { findMany: vi.fn(), findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn() },
-    order: { findMany: vi.fn(), findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), create: vi.fn(), update: vi.fn(), aggregate: vi.fn() },
+    produceListing: { findMany: vi.fn(), findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), count: vi.fn() },
+    order: { findMany: vi.fn(), findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), create: vi.fn(), update: vi.fn(), aggregate: vi.fn(), count: vi.fn() },
     invoice: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     product: { findMany: vi.fn(), findUnique: vi.fn() },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
+    payment: { findUnique: vi.fn(), upsert: vi.fn() },
+    listingPhoto: { findUnique: vi.fn(), create: vi.fn(), delete: vi.fn(), count: vi.fn() },
   };
   const prisma = {
     ...models,
