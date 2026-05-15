@@ -1,0 +1,54 @@
+name = "farmconnect-api"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+tsconfig = "tsconfig.worker.json"
+
+[vars]
+CF_WORKER = "true"
+NODE_ENV = "production"
+SENDGRID_FROM_EMAIL = "no-reply@farmconnect.co.za"
+SENDGRID_FROM_NAME = "FarmConnect SA"
+R2_BUCKET_NAME = "farmconnect-prod"
+OZOW_IS_TEST = "false"
+JWT_EXPIRES_IN = "7d"
+REFRESH_TOKEN_EXPIRES_IN = "30d"
+
+# Secrets — set via: wrangler secret put <KEY>
+# DATABASE_URL        Neon pooled connection string (postgres://...?sslmode=require)
+# DIRECT_URL          Neon non-pooled URL for migrations
+# REDIS_URL           Upstash TLS endpoint  (rediss://...)
+# JWT_SECRET
+# OZOW_SITE_CODE, OZOW_PRIVATE_KEY, OZOW_WEBHOOK_SECRET
+# STITCH_CLIENT_ID, STITCH_CLIENT_SECRET, STITCH_WEBHOOK_SECRET
+# CLICKATELL_API_KEY, CLICKATELL_WHATSAPP_NUMBER
+# SENDGRID_API_KEY
+# R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PUBLIC_URL
+# FRONTEND_URL        e.g. farmconnect.pages.dev
+
+[[queues.producers]]
+queue = "farmconnect-payouts"
+binding = "PAYOUTS_QUEUE"
+
+[[queues.producers]]
+queue = "farmconnect-notifications"
+binding = "NOTIFICATIONS_QUEUE"
+
+[[queues.producers]]
+queue = "farmconnect-invoices"
+binding = "INVOICES_QUEUE"
+
+[[queues.consumers]]
+queue = "farmconnect-payouts"
+max_batch_size = 10
+max_batch_timeout = 30
+
+[[queues.consumers]]
+queue = "farmconnect-notifications"
+max_batch_size = 20
+max_batch_timeout = 10
+
+[[queues.consumers]]
+queue = "farmconnect-invoices"
+max_batch_size = 5
+max_batch_timeout = 60

@@ -170,38 +170,40 @@ async function generatePdf(invoiceId: string): Promise<Buffer> {
   });
 }
 
+export async function processInvoiceJob(data: InvoiceJobData): Promise<void> {
+  const { invoiceId } = data;
+
+  const existing = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { status: true } });
+  if (!existing || existing.status !== 'DRAFT') {
+    logger.info({ invoiceId }, 'Invoice already generated — skipping');
+    return;
+  }
+
+  const pdfBuffer = await generatePdf(invoiceId);
+
+  let pdfUrl: string;
+  if (process.env.R2_ACCOUNT_ID) {
+    const { buildKey, getUploadUrl, publicUrl } = await import('../lib/r2');
+    const key = buildKey(`invoices/${invoiceId}`, 'pdf');
+    const uploadUrl = await getUploadUrl(key, 'application/pdf');
+    await fetch(uploadUrl, { method: 'PUT', body: pdfBuffer, headers: { 'Content-Type': 'application/pdf' } });
+    pdfUrl = publicUrl(key);
+  } else {
+    pdfUrl = `data:application/pdf;base64,${pdfBuffer.toString('base64')}`;
+  }
+
+  await prisma.invoice.update({
+    where: { id: invoiceId },
+    data: { status: 'ISSUED', issuedAt: new Date(), pdfUrl },
+  });
+
+  logger.info({ invoiceId }, 'Invoice PDF generated');
+}
+
 export function startInvoiceWorker() {
   const worker = new Worker<InvoiceJobData>(
     'invoices',
-    async (job: Job<InvoiceJobData>) => {
-      const { invoiceId } = job.data;
-
-      const existing = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { status: true } });
-      if (!existing || existing.status !== 'DRAFT') {
-        logger.info({ invoiceId }, 'Invoice already generated — skipping');
-        return;
-      }
-
-      const pdfBuffer = await generatePdf(invoiceId);
-
-      let pdfUrl: string;
-      if (process.env.R2_ACCOUNT_ID) {
-        const { buildKey, getUploadUrl, publicUrl } = await import('../lib/r2');
-        const key = buildKey(`invoices/${invoiceId}`, 'pdf');
-        const uploadUrl = await getUploadUrl(key, 'application/pdf');
-        await fetch(uploadUrl, { method: 'PUT', body: pdfBuffer, headers: { 'Content-Type': 'application/pdf' } });
-        pdfUrl = publicUrl(key);
-      } else {
-        pdfUrl = `data:application/pdf;base64,${pdfBuffer.toString('base64')}`;
-      }
-
-      await prisma.invoice.update({
-        where: { id: invoiceId },
-        data: { status: 'ISSUED', issuedAt: new Date(), pdfUrl },
-      });
-
-      logger.info({ invoiceId }, 'Invoice PDF generated');
-    },
+    (job: Job<InvoiceJobData>) => processInvoiceJob(job.data),
     { connection: redis, concurrency: 3 }
   );
 
