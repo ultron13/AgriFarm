@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { logger } from './logger';
+import { redis } from './redis';
 
 const CLIENT_ID = process.env.STITCH_CLIENT_ID ?? '';
 const CLIENT_SECRET = process.env.STITCH_CLIENT_SECRET ?? '';
@@ -10,12 +11,11 @@ if (!WEBHOOK_SECRET && process.env.NODE_ENV === 'production') {
 }
 const BASE_URL = 'https://api.stitch.money';
 
-let cachedToken: { token: string; expiresAt: number } | null = null;
+const TOKEN_KEY = 'stitch:access_token';
 
 async function getAccessToken(): Promise<string> {
-  if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) {
-    return cachedToken.token;
-  }
+  const cached = await redis.get(TOKEN_KEY);
+  if (cached) return cached;
 
   const res = await fetch(`${BASE_URL}/connect/token`, {
     method: 'POST',
@@ -30,8 +30,10 @@ async function getAccessToken(): Promise<string> {
   });
 
   const data = await res.json() as { access_token: string; expires_in: number };
-  cachedToken = { token: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 };
-  return cachedToken.token;
+  // Store with TTL 60s less than expiry so the token is never served stale
+  const ttl = Math.max(data.expires_in - 60, 30);
+  await redis.set(TOKEN_KEY, data.access_token, 'EX', ttl);
+  return data.access_token;
 }
 
 export interface StitchPayoutRequest {
