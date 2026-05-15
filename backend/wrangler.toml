@@ -4,6 +4,25 @@ compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 tsconfig = "tsconfig.worker.json"
 
+# [define] values are compile-time constants — esbuild replaces them before bundling.
+# process.env.CF_WORKER must be a compile-time constant so esbuild can statically
+# eliminate the non-CF branches (standard Prisma, pino) that fail CF validation.
+# __dirname/__filename are referenced by Prisma's CJS runtime; they're safe as stubs
+# because the Neon HTTP adapter never loads the native engine binary.
+[define]
+"process.env.CF_WORKER" = '"true"'
+"__dirname" = '"/app"'
+"__filename" = '"/app/index.js"'
+
+[alias]
+# iconv-lite uses the `streams` npm package (a thin re-export of Node.js stream).
+# esbuild's CJS wrapping breaks its initialization; redirect to our polyfill.
+"streams" = "./src/polyfills/streams"
+# pino and pino-http use worker_threads / process internals that fail CF Workers
+# bundle validation. Redirect to console-based stubs; real pino runs in local dev.
+"pino" = "./src/polyfills/pino-noop"
+"pino-http" = "./src/polyfills/pino-http-noop"
+
 [vars]
 CF_WORKER = "true"
 NODE_ENV = "production"

@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { JwtPayload, AuthenticatedRequest, err } from '../types';
-import { JWT_SECRET } from '../lib/jwt-secret';
+import { getJwtSecret } from '../lib/jwt-secret';
 import { isTokenRevoked } from '../lib/token-revocation';
 
 export async function authenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -22,7 +22,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   }
 
   try {
-    const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as JwtPayload;
+    const payload = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] }) as JwtPayload;
 
     if (await isTokenRevoked(payload.sub, payload.iat ?? 0)) {
       res.status(401).json(err('TOKEN_REVOKED', 'Token has been revoked'));

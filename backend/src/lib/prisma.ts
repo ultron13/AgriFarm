@@ -1,21 +1,17 @@
 import { PrismaClient } from '@prisma/client';
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import { PrismaNeon } from '@prisma/adapter-neon';
 import { logger } from './logger';
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 function createClient(): PrismaClient {
   if (process.env.CF_WORKER === 'true') {
-    // Neon serverless HTTP driver — works in CF Workers without a persistent TCP connection.
-    // These packages are optional deps; require() is used so the local dev build doesn't
-    // fail if they're not installed.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { Pool, neonConfig } = require('@neondatabase/serverless') as typeof import('@neondatabase/serverless');
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { PrismaNeon } = require('@prisma/adapter-neon') as typeof import('@prisma/adapter-neon');
+    // Neon serverless HTTP driver — no persistent TCP connection required.
     neonConfig.fetchConnectionCache = true;
     const pool = new Pool({ connectionString: process.env.DATABASE_URL ?? '' });
     const adapter = new PrismaNeon(pool);
-    return new PrismaClient({ adapter } as any);
+    return new PrismaClient({ adapter });
   }
 
   const client = new PrismaClient({

@@ -32,7 +32,10 @@ export function createApp() {
   const origin = rawOrigin.startsWith('http') ? rawOrigin : `https://${rawOrigin}`;
   app.use(cors({ origin, credentials: true }));
   app.use(cookieParser());
-  app.use(pinoHttp({ logger }));
+  // pino-http uses pino worker_threads internals that don't work in CF Workers
+  if (process.env.CF_WORKER !== 'true') {
+    app.use(pinoHttp({ logger }));
+  }
 
   // Raw body for webhook signature verification — must come before express.json()
   app.use('/api/v1/webhooks', express.raw({ type: 'application/json' }));

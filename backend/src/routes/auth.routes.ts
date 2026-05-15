@@ -30,7 +30,7 @@ const registerLimiter = rateLimit({
   handler: rateLimitResponse('RATE_LIMITED', 'Too many registration attempts, please try again later'),
 });
 
-import { JWT_SECRET } from '../lib/jwt-secret';
+import { getJwtSecret } from '../lib/jwt-secret';
 import { authenticate } from '../middleware/authenticate';
 import { revokeUserTokens } from '../lib/token-revocation';
 import { AuthenticatedRequest } from '../types';
@@ -78,7 +78,7 @@ authRouter.post('/register', registerLimiter, validateBody(registerSchema), asyn
     const passwordHash = await bcrypt.hash(password, 12);
     const user = await prisma.user.create({ data: { email, phone, passwordHash, role } });
 
-    const token = jwt.sign({ sub: user.id, role: user.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions);
+    const token = jwt.sign({ sub: user.id, role: user.role }, getJwtSecret(), { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions);
     res.cookie('fc_token', token, tokenCookieOptions());
     res.status(201).json(ok({ userId: user.id, token, role: user.role }));
   } catch (e) {
@@ -98,7 +98,7 @@ authRouter.post('/login', loginLimiter, validateBody(loginSchema), async (req: R
 
     await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
-    const token = jwt.sign({ sub: user.id, role: user.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions);
+    const token = jwt.sign({ sub: user.id, role: user.role }, getJwtSecret(), { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions);
     res.cookie('fc_token', token, tokenCookieOptions());
     res.json(ok({ userId: user.id, token, role: user.role }));
   } catch (e) {
