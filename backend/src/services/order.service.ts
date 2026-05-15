@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { payoutsQueue, notificationsQueue, invoicesQueue } from '../jobs/queues';
@@ -56,7 +57,7 @@ export const OrderService = {
     const buyerCommission = baseDelivered.mul(BUYER_COMMISSION);
     const deliveredPrice = baseDelivered.add(buyerCommission);
 
-    const orderNumber = `FC-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+    const orderNumber = `FC-${new Date().getFullYear()}-${randomBytes(3).toString('hex').toUpperCase()}`;
 
     const buyer = await prisma.buyer.findUniqueOrThrow({ where: { id: buyerId } });
 
@@ -80,7 +81,7 @@ export const OrderService = {
     const paymentDueDate = new Date(input.deliveryDate);
     paymentDueDate.setDate(paymentDueDate.getDate() + buyer.preferredPaymentTerms);
 
-    const invoiceNumber = `INV-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+    const invoiceNumber = `INV-${new Date().getFullYear()}-${randomBytes(3).toString('hex').toUpperCase()}`;
 
     const { order, invoiceId } = await prisma.$transaction(async (tx) => {
       // Re-check credit limit inside the transaction to close the race window

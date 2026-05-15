@@ -6,6 +6,7 @@ import { authenticate } from '../middleware/authenticate';
 import { requireRole } from '../middleware/requireRole';
 import { validateBody } from '../middleware/validate';
 import { prisma } from '../lib/prisma';
+import { fromBuffer as fileTypeFromBuffer } from 'file-type';
 import { uploadFile, deleteFile, getSignedReadUrl } from '../lib/r2';
 import { ok, err, AuthenticatedRequest } from '../types';
 import { ComplianceDocType } from '@prisma/client';
@@ -77,6 +78,13 @@ complianceRouter.get('/', authenticate, async (req: AuthenticatedRequest, res: R
 complianceRouter.post('/upload', authenticate, requireRole(['FARMER']), upload.single('file'), async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.file) { res.status(400).json(err('NO_FILE', 'No file uploaded')); return; }
+
+    const ALLOWED_MIME_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
+    const detected = await fileTypeFromBuffer(req.file.buffer);
+    if (!detected || !ALLOWED_MIME_TYPES.includes(detected.mime)) {
+      res.status(400).json(err('INVALID_FILE_TYPE', 'File must be a PDF, JPEG, or PNG'));
+      return;
+    }
 
     const { type, label, expiresAt } = req.body as { type: string; label: string; expiresAt?: string };
     if (!Object.values(ComplianceDocType).includes(type as ComplianceDocType)) {

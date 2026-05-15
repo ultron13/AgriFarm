@@ -5,6 +5,7 @@ import { authenticate } from '../middleware/authenticate';
 import { requireRole } from '../middleware/requireRole';
 import { validateBody, validateQuery } from '../middleware/validate';
 import { prisma } from '../lib/prisma';
+import { fromBuffer as fileTypeFromBuffer } from 'file-type';
 import { buildKey, getUploadUrl, publicUrl } from '../lib/r2';
 import { ok, err, paginate, AuthenticatedRequest } from '../types';
 
@@ -141,6 +142,13 @@ listingsRouter.post(
     try {
       const file = req.file;
       if (!file) { res.status(400).json(err('MISSING_FILE', 'No photo file uploaded')); return; }
+
+      const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      const detected = await fileTypeFromBuffer(file.buffer);
+      if (!detected || !ALLOWED_PHOTO_TYPES.includes(detected.mime)) {
+        res.status(400).json(err('INVALID_FILE_TYPE', 'Photo must be a JPEG, PNG, WebP, or GIF'));
+        return;
+      }
 
       const listing = await prisma.produceListing.findUnique({ where: { id: req.params.id } });
       if (!listing || listing.deletedAt) { res.status(404).json(err('NOT_FOUND', 'Listing not found')); return; }
