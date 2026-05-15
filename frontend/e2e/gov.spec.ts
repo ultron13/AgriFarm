@@ -16,12 +16,8 @@ test.describe('Gov Buyer flows', () => {
   });
 
   test('portal shows tender stats or list', async ({ page }) => {
-    await page.waitForTimeout(2000);
-    const main = page.getByRole('main');
-    await expect(main).toBeVisible();
-    // Should show stats or tender list
-    const hasStats = await page.getByText(/tenders|bids|department/i).first().isVisible();
-    expect(hasStats).toBe(true);
+    await expect(page.getByRole('main')).toBeVisible();
+    await expect(page.getByText(/tenders|bids|department/i).first()).toBeVisible({ timeout: 5000 });
   });
 
   test('post tender button is visible', async ({ page }) => {

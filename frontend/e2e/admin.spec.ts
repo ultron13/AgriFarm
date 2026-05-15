@@ -23,8 +23,7 @@ test.describe('Admin flows', () => {
   });
 
   test('orders page shows order list or empty state', async ({ page }) => {
-    await page.waitForTimeout(2000);
-    await expect(page.getByRole('main')).toBeVisible();
+    await expect(page.getByRole('main')).toBeVisible({ timeout: 5000 });
   });
 
   test('quality checks page accessible', async ({ page }) => {

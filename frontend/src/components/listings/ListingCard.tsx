@@ -19,7 +19,7 @@ export function ListingCard({ listing, onOrder }: ListingCardProps) {
   const gradeKey = listing.grade?.grade ?? 'B';
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+    <div data-testid="listing-card" className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
       {/* Photo */}
       <div className="relative h-44 bg-gray-100 overflow-hidden">
         {listing.photos[0] ? (

@@ -9,8 +9,7 @@ test.describe('Buyer flows', () => {
   test('browse produce page shows listings', async ({ page }) => {
     await page.goto('/browse');
     await expect(page.getByRole('heading', { name: 'Browse Produce' })).toBeVisible({ timeout: 8000 });
-    // Wait for listings grid to populate (any listing card — they're divs with rounded-2xl)
-    await expect(page.locator('.rounded-2xl.border').first()).toBeVisible({ timeout: 8000 });
+    await expect(page.getByTestId('listing-card').first()).toBeVisible({ timeout: 8000 });
   });
 
   test('sidebar shows Browse Produce link for buyer', async ({ page }) => {
@@ -25,13 +24,11 @@ test.describe('Buyer flows', () => {
 
   test('order modal opens when clicking order button', async ({ page }) => {
     await page.goto('/browse');
-    // Wait for listings to load
-    await expect(page.locator('.rounded-2xl.border').first()).toBeVisible({ timeout: 8000 });
+    await expect(page.getByTestId('listing-card').first()).toBeVisible({ timeout: 8000 });
     const orderBtn = page.getByRole('button', { name: /^order$/i }).first();
     if (await orderBtn.isVisible({ timeout: 2000 })) {
       await orderBtn.click();
-      // Modal uses fixed overlay, not dialog role — check for modal heading
-      await expect(page.getByText(/place order/i).or(page.locator('.fixed.inset-0.z-50'))).toBeVisible({ timeout: 5000 });
+      await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
     }
   });
 });

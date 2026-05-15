@@ -23,9 +23,8 @@ test.describe('WhatsApp simulator', () => {
     await expect(msgInput).toBeVisible({ timeout: 5000 });
     await msgInput.fill('hi');
     await msgInput.press('Enter');
-    // Should show a response from the bot
-    await page.waitForTimeout(2000);
-    const hasBotResponse = await page.locator('strong, span').filter({ hasText: /welcome|hello|menu|order/i }).count();
-    expect(hasBotResponse).toBeGreaterThan(0);
+    await expect(
+      page.locator('strong, span').filter({ hasText: /welcome|hello|menu|order/i }).first()
+    ).toBeVisible({ timeout: 8000 });
   });
 });

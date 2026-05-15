@@ -42,8 +42,6 @@ test.describe('Farmer flows', () => {
 
   test('tenders page shows tender list or empty state', async ({ page }) => {
     await page.goto('/tenders');
-    await page.waitForTimeout(2000);
-    const hasContent = await page.getByRole('heading', { name: /tenders|procurement/i }).isVisible();
-    expect(hasContent).toBe(true);
+    await expect(page.getByRole('heading', { name: /tenders|procurement/i })).toBeVisible({ timeout: 5000 });
   });
 });
