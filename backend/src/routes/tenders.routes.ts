@@ -108,9 +108,27 @@ tendersRouter.post('/', authenticate, requireRole(['GOV_BUYER']), validateBody(c
 // GET /tenders/:id — detail
 tendersRouter.get('/:id', authenticate, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
+    const role = req.user.role;
+    const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+
+    // Determine whether this requester is allowed to see bid details.
+    // Only the owning GOV_BUYER and admins may see competitor bid prices.
+    let canSeeBids = isAdmin;
+    if (role === 'GOV_BUYER' && !isAdmin) {
+      const buyer = await prisma.buyer.findUnique({ where: { userId: req.user.sub } });
+      if (buyer) {
+        // Check ownership without fetching bids first
+        const owns = await prisma.tender.count({ where: { id: req.params.id, buyerId: buyer.id } });
+        canSeeBids = owns > 0;
+      }
+    }
+
     const tender = await prisma.tender.findUnique({
       where: { id: req.params.id },
-      include: tenderInclude,
+      include: canSeeBids ? tenderInclude : {
+        buyer: { include: { organization: true } },
+        _count: { select: { bids: true } },
+      },
     });
     if (!tender) { res.status(404).json(err('NOT_FOUND', 'Tender not found')); return; }
     res.json(ok(tender));
