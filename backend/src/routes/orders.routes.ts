@@ -72,9 +72,17 @@ ordersRouter.get('/:id', authenticate, async (req: AuthenticatedRequest, res: Re
       include: { items: { include: { listing: { include: { product: true, farmer: true } } } }, delivery: true, payment: true, invoice: true, qualityChecks: { include: { photos: true } } },
     });
 
-    if (!order) {
-      res.status(404).json(err('NOT_FOUND', 'Order not found'));
-      return;
+    if (!order) { res.status(404).json(err('NOT_FOUND', 'Order not found')); return; }
+
+    const { role } = req.user;
+    if (role === 'BUYER') {
+      const buyer = await prisma.buyer.findUnique({ where: { userId: req.user.sub } });
+      if (!buyer || order.buyerId !== buyer.id) { res.status(403).json(err('FORBIDDEN', 'Access denied')); return; }
+    } else if (role === 'FARMER') {
+      const farmer = await prisma.farmer.findUnique({ where: { userId: req.user.sub } });
+      if (!farmer || !order.items.some(i => i.listing.farmerId === farmer.id)) {
+        res.status(403).json(err('FORBIDDEN', 'Access denied')); return;
+      }
     }
 
     res.json(ok(order));

@@ -56,10 +56,22 @@ paymentsRouter.post(
   }
 );
 
-paymentsRouter.get('/:orderId', authenticate, async (req, res: Response, next: NextFunction) => {
+paymentsRouter.get('/:orderId', authenticate, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const payment = await prisma.payment.findUnique({ where: { orderId: req.params.orderId } });
     if (!payment) { res.status(404).json(err('NOT_FOUND', 'Payment not found')); return; }
+
+    const { role } = req.user;
+    if (role === 'BUYER') {
+      const buyer = await prisma.buyer.findUnique({ where: { userId: req.user.sub } });
+      const order = await prisma.order.findUnique({ where: { id: req.params.orderId }, select: { buyerId: true } });
+      if (!buyer || order?.buyerId !== buyer.id) { res.status(403).json(err('FORBIDDEN', 'Access denied')); return; }
+    } else if (role === 'FARMER') {
+      const farmer = await prisma.farmer.findUnique({ where: { userId: req.user.sub } });
+      const order = await prisma.order.findUnique({ where: { id: req.params.orderId }, include: { items: { select: { listing: { select: { farmerId: true } } } } } });
+      if (!farmer || !order?.items.some(i => i.listing.farmerId === farmer.id)) { res.status(403).json(err('FORBIDDEN', 'Access denied')); return; }
+    }
+
     res.json(ok(payment));
   } catch (e) {
     next(e);
