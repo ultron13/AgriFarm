@@ -31,12 +31,12 @@ describe('authenticate middleware', () => {
     expect(res.status).toHaveBeenCalledWith(401);
   });
 
-  it('attaches user and calls next with valid token', () => {
+  it('attaches user and calls next with valid token', async () => {
     const token = jwt.sign({ sub: 'user-1', role: 'FARMER' }, 'test-secret');
     const req = { headers: { authorization: `Bearer ${token}` } } as Request;
     const res = mockRes();
     const next = mockNext();
-    authenticate(req, res, next);
+    await authenticate(req, res, next);
     expect(next).toHaveBeenCalled();
     expect((req as AuthenticatedRequest).user.sub).toBe('user-1');
     expect((req as AuthenticatedRequest).user.role).toBe('FARMER');

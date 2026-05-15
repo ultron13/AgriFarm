@@ -2,8 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { JwtPayload, AuthenticatedRequest, err } from '../types';
 import { JWT_SECRET } from '../lib/jwt-secret';
+import { isTokenRevoked } from '../lib/token-revocation';
 
-export function authenticate(req: Request, res: Response, next: NextFunction): void {
+export async function authenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
   // Cookie takes precedence (browser clients); Authorization header is the fallback (API/mobile clients).
   const cookieToken: string | undefined = (req as Request & { cookies: Record<string, string> }).cookies?.fc_token;
   const header = req.headers.authorization;
@@ -22,6 +23,12 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
 
   try {
     const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as JwtPayload;
+
+    if (await isTokenRevoked(payload.sub, payload.iat ?? 0)) {
+      res.status(401).json(err('TOKEN_REVOKED', 'Token has been revoked'));
+      return;
+    }
+
     (req as AuthenticatedRequest).user = payload;
     next();
   } catch {

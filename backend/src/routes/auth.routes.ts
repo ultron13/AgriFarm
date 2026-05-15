@@ -31,6 +31,9 @@ const registerLimiter = rateLimit({
 });
 
 import { JWT_SECRET } from '../lib/jwt-secret';
+import { authenticate } from '../middleware/authenticate';
+import { revokeUserTokens } from '../lib/token-revocation';
+import { AuthenticatedRequest } from '../types';
 
 export const authRouter = Router();
 
@@ -101,7 +104,8 @@ authRouter.post('/login', loginLimiter, validateBody(loginSchema), async (req: R
   }
 });
 
-authRouter.post('/logout', (_req: Request, res: Response) => {
+authRouter.post('/logout', authenticate, async (req: Request, res: Response) => {
+  try { await revokeUserTokens((req as AuthenticatedRequest).user.sub); } catch { /* best-effort */ }
   res.clearCookie('fc_token', { path: '/' });
   res.json(ok({ loggedOut: true }));
 });
