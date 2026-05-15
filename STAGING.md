@@ -100,7 +100,7 @@ fly secrets set --app farmconnect-api \
 ```bash
 fly secrets set \
   --app farmconnect-web \
-  BACKEND_URL="https://farmconnect-api.fly.dev"
+  BACKEND_URL="http://farmconnect-api.internal:3000"
 ```
 
 ---
