@@ -43,10 +43,13 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN ?? '7d';
 const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days, matching default JWT expiry
 
 function tokenCookieOptions(): CookieOptions {
+  // SameSite=None is required for cross-site requests between
+  // farmconnect-web.pages.dev and farmconnect-api.tmolokana.workers.dev.
+  // Secure is mandatory whenever SameSite=None is used.
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: true,
+    sameSite: 'none',
     maxAge: COOKIE_MAX_AGE_MS,
     path: '/',
   };
