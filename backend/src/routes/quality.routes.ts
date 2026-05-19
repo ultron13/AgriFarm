@@ -20,7 +20,7 @@ const createCheckSchema = z.object({
   photos: z.array(
     z.string()
       .max(200)
-      .regex(/^(?!.*\.\.)[a-zA-Z0-9_\-][a-zA-Z0-9_\-/]*\.[a-zA-Z0-9]{2,5}$/, 'Invalid R2 key')
+      .regex(/^(?!.*\.\.)[a-zA-Z0-9_-][a-zA-Z0-9_\-/]*\.[a-zA-Z0-9]{2,5}$/, 'Invalid R2 key')
   ).min(3, 'Minimum 3 photos required'),
 });
 

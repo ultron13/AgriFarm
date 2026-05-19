@@ -7,6 +7,7 @@ import { validateBody } from '../middleware/validate';
 import { errorHandler } from '../middleware/errorHandler';
 import { AuthenticatedRequest } from '../types';
 import { ZodError, z } from 'zod';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
 const mockRes = () => {
   const res: Partial<Response> = {};
@@ -91,7 +92,6 @@ describe('errorHandler middleware', () => {
   });
 
   it('returns 404 for Prisma P2025 (record not found)', () => {
-    const { PrismaClientKnownRequestError } = require('@prisma/client/runtime/library');
     const prismaErr = new PrismaClientKnownRequestError('Record not found', { code: 'P2025', clientVersion: '5.0.0' });
     const req = { path: '/', method: 'GET' } as Request;
     const res = mockRes();
@@ -100,7 +100,6 @@ describe('errorHandler middleware', () => {
   });
 
   it('returns 409 for Prisma P2002 (unique constraint)', () => {
-    const { PrismaClientKnownRequestError } = require('@prisma/client/runtime/library');
     const prismaErr = new PrismaClientKnownRequestError('Unique constraint failed', { code: 'P2002', clientVersion: '5.0.0' });
     const req = { path: '/', method: 'POST' } as Request;
     const res = mockRes();
