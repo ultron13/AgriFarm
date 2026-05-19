@@ -2,7 +2,7 @@ import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { authenticate } from '../middleware/authenticate';
 import { requireRole } from '../middleware/requireRole';
-import { validateBody, validateQuery } from '../middleware/validate';
+import { validateBody } from '../middleware/validate';
 import { prisma } from '../lib/prisma';
 import { ok, err, paginate, AuthenticatedRequest } from '../types';
 import { audit } from '../lib/audit';
