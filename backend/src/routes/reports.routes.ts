@@ -1,14 +1,21 @@
 import { Router, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import { authenticate } from '../middleware/authenticate';
 import { requireRole } from '../middleware/requireRole';
+import { validateQuery } from '../middleware/validate';
 import { prisma } from '../lib/prisma';
 import { ok } from '../types';
+
+const dateRangeSchema = z.object({
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+});
 
 export const reportsRouter = Router();
 
 const adminOnly = requireRole(['ADMIN', 'SUPER_ADMIN']);
 
-reportsRouter.get('/gmv', authenticate, adminOnly, async (req, res: Response, next: NextFunction) => {
+reportsRouter.get('/gmv', authenticate, adminOnly, validateQuery(dateRangeSchema), async (req, res: Response, next: NextFunction) => {
   try {
     const from = req.query.from ? new Date(req.query.from as string) : new Date(new Date().setDate(1));
     const to = req.query.to ? new Date(req.query.to as string) : new Date();
@@ -27,7 +34,7 @@ reportsRouter.get('/gmv', authenticate, adminOnly, async (req, res: Response, ne
   } catch (e) { next(e); }
 });
 
-reportsRouter.get('/unit-economics', authenticate, adminOnly, async (req, res: Response, next: NextFunction) => {
+reportsRouter.get('/unit-economics', authenticate, adminOnly, validateQuery(dateRangeSchema), async (req, res: Response, next: NextFunction) => {
   try {
     const from = req.query.from ? new Date(req.query.from as string) : new Date(new Date().setDate(1));
     const to = req.query.to ? new Date(req.query.to as string) : new Date();
@@ -53,7 +60,7 @@ reportsRouter.get('/unit-economics', authenticate, adminOnly, async (req, res: R
   } catch (e) { next(e); }
 });
 
-reportsRouter.get('/bbbee', authenticate, adminOnly, async (req, res: Response, next: NextFunction) => {
+reportsRouter.get('/bbbee', authenticate, adminOnly, validateQuery(dateRangeSchema), async (req, res: Response, next: NextFunction) => {
   try {
     const from = req.query.from ? new Date(req.query.from as string) : new Date(new Date().setDate(1));
     const to = req.query.to ? new Date(req.query.to as string) : new Date();
