@@ -88,8 +88,8 @@ tendersRouter.post('/', authenticate, requireRole(['GOV_BUYER']), validateBody(c
     const buyer = await prisma.buyer.findUnique({ where: { userId: req.user.sub } });
     if (!buyer) { res.status(404).json(err('NOT_FOUND', 'Buyer profile not found')); return; }
 
-    const seq = await prisma.tender.count();
-    const refNum = `TND-${new Date().getFullYear()}-${String(seq + 1).padStart(4, '0')}`;
+    const [{ nextval }] = await prisma.$queryRaw<[{ nextval: bigint }]>`SELECT nextval('tender_ref_seq')`;
+    const refNum = `TND-${new Date().getFullYear()}-${String(nextval).padStart(4, '0')}`;
 
     const tender = await prisma.tender.create({
       data: {
