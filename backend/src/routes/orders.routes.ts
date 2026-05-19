@@ -7,6 +7,7 @@ import { prisma } from '../lib/prisma';
 import { ok, err, paginate, AuthenticatedRequest } from '../types';
 import { OrderService } from '../services/order.service';
 import { audit } from '../lib/audit';
+import { payoutsQueue } from '../jobs/queues';
 
 export const ordersRouter = Router();
 
@@ -196,6 +197,62 @@ ordersRouter.post(
       await audit({ userId: req.user.sub, action: 'ORDER_DISPUTED', resourceType: 'Order', resourceId: order.id, after: { reason }, ip: req.ip });
 
       res.json(ok(updated));
+    } catch (e) { next(e); }
+  }
+);
+
+const resolveDisputeSchema = z.object({
+  outcome: z.enum(['REFUND', 'RESOLVE']),
+  note: z.string().min(5),
+});
+
+ordersRouter.post(
+  '/:id/resolve-dispute',
+  authenticate,
+  requireRole(['ADMIN', 'SUPER_ADMIN']),
+  validateBody(resolveDisputeSchema),
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const { outcome, note } = req.body as z.infer<typeof resolveDisputeSchema>;
+
+      const order = await prisma.order.findUnique({
+        where: { id: req.params.id },
+        include: { payouts: { where: { status: 'CANCELLED' } }, payment: true },
+      });
+      if (!order) { res.status(404).json(err('NOT_FOUND', 'Order not found')); return; }
+      if (order.status !== 'DISPUTED') {
+        res.status(409).json(err('INVALID_STATE', 'Order is not in DISPUTED state'));
+        return;
+      }
+
+      const resolution = `[RESOLVED:${outcome}] ${note}`;
+      const appendedNotes = order.notes ? `${order.notes}\n${resolution}` : resolution;
+
+      if (outcome === 'REFUND') {
+        const updated = await prisma.order.update({
+          where: { id: order.id },
+          data: { status: 'REFUNDED', notes: appendedNotes },
+        });
+        await audit({ userId: req.user.sub, action: 'DISPUTE_RESOLVED', resourceType: 'Order', resourceId: order.id, after: { outcome, note }, ip: req.ip });
+        res.json(ok(updated));
+      } else {
+        // RESOLVE: re-deliver the order and re-queue payouts that were cancelled when the dispute was opened
+        const updated = await prisma.order.update({
+          where: { id: order.id },
+          data: { status: 'DELIVERED', notes: appendedNotes },
+        });
+        await prisma.payout.updateMany({
+          where: { orderId: order.id, status: 'CANCELLED' },
+          data: { status: 'PENDING' },
+        });
+        if (order.payment?.status === 'PAID') {
+          for (const payout of order.payouts) {
+            await payoutsQueue.add('process_payout', { payoutId: payout.id });
+          }
+        }
+        await audit({ userId: req.user.sub, action: 'DISPUTE_RESOLVED', resourceType: 'Order', resourceId: order.id, after: { outcome, note }, ip: req.ip });
+        res.json(ok(updated));
+      }
     } catch (e) { next(e); }
   }
 );

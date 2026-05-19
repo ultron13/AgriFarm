@@ -48,3 +48,12 @@ export function useConfirmDelivery() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['orders'] }),
   });
 }
+
+export function useResolveDispute() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ orderId, outcome, note }: { orderId: string; outcome: 'REFUND' | 'RESOLVE'; note: string }) =>
+      api.post<Order>(`/orders/${orderId}/resolve-dispute`, { outcome, note }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['orders'] }),
+  });
+}

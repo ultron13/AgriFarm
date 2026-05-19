@@ -1,6 +1,7 @@
 import { Worker, Job } from 'bullmq';
 import { redis } from '../lib/redis';
 import { sendWhatsapp, sendSms } from '../lib/clickatell';
+import { sendEmail, notificationEmail } from '../lib/sendgrid';
 import { logger } from '../lib/logger';
 import type { NotificationJobData } from './queues';
 
@@ -10,8 +11,9 @@ export async function processNotificationJob(data: NotificationJobData): Promise
   } else if (data.channel === 'sms') {
     await sendSms({ to: data.to, text: data.text });
   } else if (data.channel === 'email') {
-    // SendGrid email handled here in Phase 2
-    logger.info({ to: data.to, subject: data.subject }, 'Email notification (not yet implemented)');
+    const { subject, html } = notificationEmail(data.templateId, data.variables);
+    await sendEmail({ to: data.to, subject, html });
+    logger.info({ to: data.to, templateId: data.templateId }, 'Email notification sent');
   }
 }
 

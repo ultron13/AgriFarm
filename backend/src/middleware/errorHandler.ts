@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import { PrismaClientKnownRequestError } from '@prisma/client';
 import { logger } from '../lib/logger';
 import { err } from '../types';
+import { captureException } from '../lib/sentry';
 
 export function errorHandler(error: unknown, req: Request, res: Response, _next: NextFunction): void {
   if (error instanceof ZodError) {
@@ -27,6 +28,7 @@ export function errorHandler(error: unknown, req: Request, res: Response, _next:
     return;
   }
 
+  captureException(error);
   logger.error({ err: error, path: req.path, method: req.method }, 'Unhandled error');
   res.status(500).json(err('INTERNAL_ERROR', 'An unexpected error occurred'));
 }

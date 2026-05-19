@@ -2,6 +2,7 @@ import { Worker, Job } from 'bullmq';
 import PDFDocument from 'pdfkit';
 import { redis } from '../lib/redis';
 import { prisma } from '../lib/prisma';
+import { sendEmail, invoiceEmail } from '../lib/sendgrid';
 import { logger } from '../lib/logger';
 import type { InvoiceJobData } from './queues';
 import { BUYER_COMMISSION_RATE } from '../lib/constants';
@@ -197,7 +198,49 @@ export async function processInvoiceJob(data: InvoiceJobData): Promise<void> {
     data: { status: 'ISSUED', issuedAt: new Date(), pdfUrl },
   });
 
-  logger.info({ invoiceId }, 'Invoice PDF generated');
+  // Email the invoice PDF to the buyer
+  const meta = await prisma.invoice.findUnique({
+    where: { id: invoiceId },
+    select: {
+      invoiceNumber: true,
+      total: true,
+      dueDate: true,
+      order: {
+        select: {
+          orderNumber: true,
+          buyer: { select: { user: { select: { email: true } } } },
+        },
+      },
+    },
+  });
+
+  const buyerEmail = meta?.order.buyer.user.email;
+  if (buyerEmail && !buyerEmail.endsWith('@deleted.farmconnect.co.za')) {
+    const amount = `R${Number(meta!.total).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`;
+    const dueDate = meta!.dueDate
+      ? new Date(meta!.dueDate).toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })
+      : '—';
+    const { subject, html } = invoiceEmail({
+      invoiceNumber: meta!.invoiceNumber,
+      orderNumber:   meta!.order.orderNumber,
+      amount,
+      dueDate,
+      pdfUrl: pdfUrl.startsWith('data:') ? undefined : pdfUrl,
+    });
+    await sendEmail({
+      to: buyerEmail,
+      subject,
+      html,
+      attachments: [{
+        content: pdfBuffer.toString('base64'),
+        filename: `${meta!.invoiceNumber}.pdf`,
+        type: 'application/pdf',
+        disposition: 'attachment',
+      }],
+    });
+  }
+
+  logger.info({ invoiceId }, 'Invoice PDF generated and emailed');
 }
 
 export function startInvoiceWorker() {

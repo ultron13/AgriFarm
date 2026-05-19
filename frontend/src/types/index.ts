@@ -108,6 +108,7 @@ export interface Order {
   paymentDueDate: string;
   paymentTermDays?: number;
   source: string;
+  notes?: string | null;
   items: OrderItem[];
   buyer?: { displayName: string; buyerType?: string };
   delivery?: { status: DeliveryStatus; driverName: string | null; vehicleRef: string | null };

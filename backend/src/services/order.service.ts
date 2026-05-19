@@ -190,6 +190,46 @@ export const OrderService = {
       variables: { orderNumber, deliveryDate: input.deliveryDate, amount: `R${deliveredPrice.toFixed(2)}` },
     });
 
+    // Notify each unique farmer whose listing was ordered
+    const farmerItems = new Map<string, { farmerUserId: string; parts: string[]; farmGateTotal: Prisma.Decimal }>();
+    for (let i = 0; i < input.items.length; i++) {
+      const listing = listings[i];
+      const item = lineItems[i];
+      const { id: farmerId, userId: farmerUserId } = listing.farmer;
+      const part = `${item.quantityKg} kg ${listing.product.name}`;
+      const gross = item.farmGatePrice.mul(item.qty);
+      const existing = farmerItems.get(farmerId);
+      if (existing) {
+        existing.parts.push(part);
+        existing.farmGateTotal = existing.farmGateTotal.add(gross);
+      } else {
+        farmerItems.set(farmerId, { farmerUserId, parts: [part], farmGateTotal: gross });
+      }
+    }
+
+    const farmerUserIds = [...farmerItems.values()].map(f => f.farmerUserId);
+    const farmerUsers = await prisma.user.findMany({
+      where: { id: { in: farmerUserIds }, phone: { not: null } },
+      select: { id: true, phone: true },
+    });
+    const phoneByUserId = new Map(farmerUsers.map(u => [u.id, u.phone!]));
+
+    for (const [, { farmerUserId, parts, farmGateTotal }] of farmerItems) {
+      const phone = phoneByUserId.get(farmerUserId);
+      if (!phone) continue;
+      await notificationsQueue.add('order_received_farmer', {
+        channel: 'whatsapp' as const,
+        to: phone,
+        templateId: 'order_received',
+        variables: {
+          orderNumber,
+          items: parts.join(', '),
+          deliveryDate: input.deliveryDate,
+          amount: `R${farmGateTotal.toFixed(2)}`,
+        },
+      });
+    }
+
     return order;
   },
 
