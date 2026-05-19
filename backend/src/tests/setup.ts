@@ -4,7 +4,7 @@ import { vi } from 'vitest';
 // `models` is defined first so $transaction can reference it via closure.
 vi.mock('../lib/prisma', () => {
   const models = {
-    user: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+    user: { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn().mockResolvedValue([]), create: vi.fn(), update: vi.fn() },
     farmer: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn(), create: vi.fn(), count: vi.fn() },
     buyer: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), updateMany: vi.fn() },
     tender: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), count: vi.fn() },
@@ -30,6 +30,7 @@ vi.mock('../lib/prisma', () => {
         ? Promise.all(arg as Promise<unknown>[])
         : (arg as (tx: typeof models) => Promise<unknown>)(models)
     ),
+    $queryRaw: vi.fn().mockResolvedValue([{ nextval: BigInt(1001) }]),
   };
   return { prisma };
 });

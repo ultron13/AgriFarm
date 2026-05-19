@@ -7,8 +7,8 @@ import { prisma } from '../lib/prisma';
 import { ok } from '../types';
 
 const dateRangeSchema = z.object({
-  from: z.string().datetime().optional(),
-  to: z.string().datetime().optional(),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}(T[\d:.Z+-]*)?$/).optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}(T[\d:.Z+-]*)?$/).optional(),
 });
 
 export const reportsRouter = Router();

@@ -26,7 +26,7 @@ describe('POST /api/v1/auth/login', () => {
   });
 
   it('returns 401 for wrong password', async () => {
-    const hash = await bcrypt.hash('correct-password', 12);
+    const hash = await bcrypt.hash('correct-password', 4);
     mockPrismaUser.findUnique.mockResolvedValue({
       id: 'u1', email: 'a@b.com', passwordHash: hash, isActive: true, role: 'FARMER',
     } as any);
@@ -35,7 +35,7 @@ describe('POST /api/v1/auth/login', () => {
   });
 
   it('returns token for valid credentials', async () => {
-    const hash = await bcrypt.hash('secret123', 12);
+    const hash = await bcrypt.hash('secret123', 4);
     mockPrismaUser.findUnique.mockResolvedValue({
       id: 'u1', email: 'a@b.com', passwordHash: hash, isActive: true, role: 'FARMER',
     } as any);

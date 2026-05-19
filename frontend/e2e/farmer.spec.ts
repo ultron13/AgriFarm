@@ -44,4 +44,14 @@ test.describe('Farmer flows', () => {
     await page.goto('/tenders');
     await expect(page.getByRole('heading', { name: /tenders|procurement/i })).toBeVisible({ timeout: 5000 });
   });
+
+  test('compliance vault page accessible', async ({ page }) => {
+    await page.goto('/compliance');
+    await expect(page.getByRole('heading', { name: /compliance|vault/i })).toBeVisible({ timeout: 5000 });
+  });
+
+  test('farmer sidebar does not show disputes or reports links', async ({ page }) => {
+    await expect(page.getByRole('link', { name: /^disputes$/i })).not.toBeVisible();
+    await expect(page.getByRole('link', { name: /^reports$/i })).not.toBeVisible();
+  });
 });

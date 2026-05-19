@@ -69,7 +69,7 @@ describe('POST /api/v1/tenders', () => {
 
   it('creates tender with reference number', async () => {
     mockBuyer.findUnique.mockResolvedValue({ id: 'b1' } as any);
-    mockTender.count.mockResolvedValue(5);
+    vi.mocked(prisma.$queryRaw).mockResolvedValue([{ nextval: BigInt(6) }]);
     mockTender.create.mockResolvedValue({ id: 't1', referenceNumber: 'TND-2026-0006' } as any);
     const res = await request(app).post('/api/v1/tenders').set(govToken).send(validTender);
     expect(res.status).toBe(201);

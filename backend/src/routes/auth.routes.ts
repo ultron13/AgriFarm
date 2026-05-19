@@ -79,7 +79,7 @@ authRouter.post('/register', registerLimiter, validateBody(registerSchema), asyn
       return;
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
+    const passwordHash = await bcrypt.hash(password, parseInt(process.env.BCRYPT_ROUNDS ?? '12', 10));
     const user = await prisma.user.create({ data: { email, phone, passwordHash, role } });
 
     const token = jwt.sign({ sub: user.id, role: user.role }, getJwtSecret(), { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions);

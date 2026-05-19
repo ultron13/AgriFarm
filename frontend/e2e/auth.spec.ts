@@ -41,4 +41,31 @@ test.describe('Authentication', () => {
     await login(page, USERS.admin.email, USERS.admin.password);
     await expect(page).toHaveURL(/\/orders/, { timeout: 5000 });
   });
+
+  test('field agent logs in and lands on /quality', async ({ page }) => {
+    await login(page, USERS.fieldAgent.email, USERS.fieldAgent.password);
+    await expect(page).toHaveURL(/\/quality/, { timeout: 5000 });
+  });
+
+  test('logistics user logs in and lands on /logistics', async ({ page }) => {
+    await login(page, USERS.logistics.email, USERS.logistics.password);
+    await expect(page).toHaveURL(/\/logistics/, { timeout: 5000 });
+  });
+
+  test('sales rep logs in and lands on /sales', async ({ page }) => {
+    await login(page, USERS.sales.email, USERS.sales.password);
+    await expect(page).toHaveURL(/\/sales/, { timeout: 5000 });
+  });
+
+  test('logout clears session and redirects to login', async ({ page }) => {
+    await login(page, USERS.buyer.email, USERS.buyer.password);
+    await expect(page).toHaveURL(/\/browse/);
+    await page.getByRole('button', { name: /sign out|log out/i }).click();
+    await expect(page).toHaveURL(/\/login/, { timeout: 5000 });
+  });
+
+  test('register page is accessible', async ({ page }) => {
+    await page.goto('/register');
+    await expect(page.getByRole('heading', { name: /create|register|sign up/i })).toBeVisible({ timeout: 5000 });
+  });
 });

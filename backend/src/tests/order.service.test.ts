@@ -24,7 +24,7 @@ const LISTING = {
   farmerId: 'farmer-1',
   farmGatePrice: new Prisma.Decimal('10.00'),
   minimumOrderKg: new Prisma.Decimal('50'),
-  farmer: { id: 'farmer-1' },
+  farmer: { id: 'farmer-1', userId: 'user-farmer-1' },
   product: { name: 'Tomatoes' },
 };
 

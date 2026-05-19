@@ -158,6 +158,83 @@ describe('POST /api/v1/orders/:id/dispute', () => {
   });
 });
 
+describe('POST /api/v1/orders/:id/resolve-dispute', () => {
+  it('requires ADMIN or SUPER_ADMIN role', async () => {
+    const res = await request(app)
+      .post('/api/v1/orders/o1/resolve-dispute')
+      .set(buyerToken)
+      .send({ outcome: 'RESOLVE', note: 'Verified delivery OK' });
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 422 for invalid outcome', async () => {
+    const res = await request(app)
+      .post('/api/v1/orders/o1/resolve-dispute')
+      .set(adminToken)
+      .send({ outcome: 'IGNORE', note: 'Verified delivery OK' });
+    expect(res.status).toBe(422);
+  });
+
+  it('returns 422 when note is too short', async () => {
+    const res = await request(app)
+      .post('/api/v1/orders/o1/resolve-dispute')
+      .set(adminToken)
+      .send({ outcome: 'RESOLVE', note: 'OK' });
+    expect(res.status).toBe(422);
+  });
+
+  it('returns 404 when order not found', async () => {
+    mockOrder.findUnique.mockResolvedValue(null);
+    const res = await request(app)
+      .post('/api/v1/orders/o1/resolve-dispute')
+      .set(adminToken)
+      .send({ outcome: 'RESOLVE', note: 'Verified delivery OK' });
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 409 when order is not DISPUTED', async () => {
+    mockOrder.findUnique.mockResolvedValue({ id: 'o1', status: 'DELIVERED', notes: null, payouts: [], payment: null } as any);
+    const res = await request(app)
+      .post('/api/v1/orders/o1/resolve-dispute')
+      .set(adminToken)
+      .send({ outcome: 'RESOLVE', note: 'Verified delivery OK' });
+    expect(res.status).toBe(409);
+  });
+
+  it('REFUND path — updates order to REFUNDED, does not re-queue payouts', async () => {
+    mockOrder.findUnique.mockResolvedValue({ id: 'o1', status: 'DISPUTED', notes: '[DISPUTE] bad produce', payouts: [], payment: null } as any);
+    mockOrder.update.mockResolvedValue({ id: 'o1', status: 'REFUNDED' } as any);
+    const res = await request(app)
+      .post('/api/v1/orders/o1/resolve-dispute')
+      .set(adminToken)
+      .send({ outcome: 'REFUND', note: 'Quality photos confirmed spoilage' });
+    expect(res.status).toBe(200);
+    expect(mockOrder.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'REFUNDED' }) })
+    );
+    expect(mockPayout.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('RESOLVE path — updates order to DELIVERED and re-enables cancelled payouts', async () => {
+    mockOrder.findUnique.mockResolvedValue({
+      id: 'o1', status: 'DISPUTED', notes: '[DISPUTE] wrong grade', payouts: [{ id: 'pay-1' }], payment: { status: 'PAID' },
+    } as any);
+    mockOrder.update.mockResolvedValue({ id: 'o1', status: 'DELIVERED' } as any);
+    mockPayout.updateMany.mockResolvedValue({ count: 1 } as any);
+    const res = await request(app)
+      .post('/api/v1/orders/o1/resolve-dispute')
+      .set(adminToken)
+      .send({ outcome: 'RESOLVE', note: 'Grade confirmed by field agent photos' });
+    expect(res.status).toBe(200);
+    expect(mockOrder.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'DELIVERED' }) })
+    );
+    expect(mockPayout.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'PENDING' } })
+    );
+  });
+});
+
 describe('PATCH /api/v1/orders/:id/status', () => {
   it('requires ADMIN role', async () => {
     const res = await request(app)

@@ -31,4 +31,14 @@ test.describe('Buyer flows', () => {
       await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
     }
   });
+
+  test('orders page shows empty state or order cards', async ({ page }) => {
+    await page.goto('/orders');
+    await expect(page.getByRole('main')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('buyer sidebar does not show disputes or reports links', async ({ page }) => {
+    await expect(page.getByRole('link', { name: /^disputes$/i })).not.toBeVisible();
+    await expect(page.getByRole('link', { name: /^reports$/i })).not.toBeVisible();
+  });
 });

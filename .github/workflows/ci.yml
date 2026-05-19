@@ -7,6 +7,7 @@ on:
     branches: [main]
 
 jobs:
+  # ── Backend: lint · typecheck · test ────────────────────────────────────────
   backend:
     name: Backend — lint · typecheck · test
     runs-on: ubuntu-latest
@@ -66,21 +67,7 @@ jobs:
       - name: Run tests
         run: npm test
 
-  backend-build:
-    name: Backend — Docker build
-    runs-on: ubuntu-latest
-    needs: backend
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build backend image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          target: production
-          push: false
-
+  # ── Frontend: typecheck · build ──────────────────────────────────────────────
   frontend:
     name: Frontend — typecheck · build
     runs-on: ubuntu-latest
@@ -107,51 +94,75 @@ jobs:
       - name: Build
         run: npm run build
 
-  frontend-build:
-    name: Frontend — Docker build
-    runs-on: ubuntu-latest
-    needs: frontend
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build frontend image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontend
-          target: production
-          push: false
-
+  # ── Deploy backend → Cloudflare Workers ────────────────────────────────────
   deploy-backend:
-    name: Deploy backend → Fly.io
+    name: Deploy backend → CF Workers
     runs-on: ubuntu-latest
-    needs: [backend, backend-build]
+    needs: backend
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy backend
-        run: flyctl deploy --remote-only
+    defaults:
+      run:
         working-directory: backend
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
-  deploy-frontend:
-    name: Deploy frontend → Fly.io
-    runs-on: ubuntu-latest
-    needs: [frontend, frontend-build, deploy-backend]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
 
-      - name: Deploy frontend
-        run: flyctl deploy --remote-only
-        working-directory: frontend
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run database migrations
+        run: npx prisma migrate deploy
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+
+      - name: Deploy to Cloudflare Workers
+        run: npx wrangler deploy
+
+  # ── Deploy frontend → Cloudflare Pages ─────────────────────────────────────
+  deploy-frontend:
+    name: Deploy frontend → CF Pages
+    runs-on: ubuntu-latest
+    needs: [frontend, deploy-backend]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+
+      - name: Deploy to Cloudflare Pages
+        run: npx wrangler pages deploy dist --project-name=farmconnect-web --commit-dirty=true

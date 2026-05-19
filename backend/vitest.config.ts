@@ -5,6 +5,7 @@ export default defineConfig({
     environment: 'node',
     globals: true,
     setupFiles: ['./src/tests/setup.ts'],
+    env: { BCRYPT_ROUNDS: '4' },
     exclude: ['**/node_modules/**', '**/dist/**'],
     coverage: {
       provider: 'v8',
