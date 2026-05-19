@@ -59,8 +59,6 @@ export const OrderService = {
     const buyerCommission = baseDelivered.mul(BUYER_COMMISSION);
     const deliveredPrice = baseDelivered.add(buyerCommission);
 
-    const orderNumber = `FC-${new Date().getFullYear()}-${randomBytes(3).toString('hex').toUpperCase()}`;
-
     const buyer = await prisma.buyer.findUniqueOrThrow({ where: { id: buyerId } });
 
     // Enforce credit limit when one is configured on the buyer profile
@@ -83,87 +81,103 @@ export const OrderService = {
     const paymentDueDate = new Date(input.deliveryDate);
     paymentDueDate.setDate(paymentDueDate.getDate() + buyer.preferredPaymentTerms);
 
-    const invoiceNumber = `INV-${new Date().getFullYear()}-${randomBytes(3).toString('hex').toUpperCase()}`;
+    // Retry loop handles the rare P2002 collision on orderNumber / invoiceNumber unique constraints.
+    const { order, invoiceId, orderNumber } = await (async () => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const orderNumber = `FC-${new Date().getFullYear()}-${randomBytes(3).toString('hex').toUpperCase()}`;
+        const invoiceNumber = `INV-${new Date().getFullYear()}-${randomBytes(3).toString('hex').toUpperCase()}`;
+        try {
+          const result = await prisma.$transaction(async (tx) => {
+            // Re-check credit limit inside the transaction to close the race window
+            // between the outer fast-fail check and the insert under concurrent load.
+            if (buyer.creditLimit !== null) {
+              const { _sum } = await tx.order.aggregate({
+                where: { buyerId, status: { notIn: ['CANCELLED', 'REFUNDED'] }, deletedAt: null },
+                _sum: { deliveredPrice: true },
+              });
+              const outstanding = _sum.deliveredPrice ?? new Prisma.Decimal(0);
+              if (outstanding.add(deliveredPrice).gt(buyer.creditLimit)) {
+                throw Object.assign(
+                  new Error(
+                    `Order total of R${deliveredPrice.toFixed(2)} would exceed your credit limit of R${buyer.creditLimit.toFixed(2)}`
+                  ),
+                  { statusCode: 409, code: 'CREDIT_LIMIT_EXCEEDED' }
+                );
+              }
+            }
 
-    const { order, invoiceId } = await prisma.$transaction(async (tx) => {
-      // Re-check credit limit inside the transaction to close the race window
-      // between the outer fast-fail check and the insert under concurrent load.
-      if (buyer.creditLimit !== null) {
-        const { _sum } = await tx.order.aggregate({
-          where: { buyerId, status: { notIn: ['CANCELLED', 'REFUNDED'] }, deletedAt: null },
-          _sum: { deliveredPrice: true },
-        });
-        const outstanding = _sum.deliveredPrice ?? new Prisma.Decimal(0);
-        if (outstanding.add(deliveredPrice).gt(buyer.creditLimit)) {
-          throw Object.assign(
-            new Error(
-              `Order total of R${deliveredPrice.toFixed(2)} would exceed your credit limit of R${buyer.creditLimit.toFixed(2)}`
-            ),
-            { statusCode: 409, code: 'CREDIT_LIMIT_EXCEEDED' }
-          );
+            const o = await tx.order.create({
+              data: {
+                orderNumber,
+                buyerId,
+                deliveryDate: new Date(input.deliveryDate),
+                totalFarmGateValue,
+                logisticsCharge,
+                deliveredPrice,
+                paymentTermDays: buyer.preferredPaymentTerms,
+                paymentDueDate,
+                notes: input.notes,
+                source: input.source ?? 'WEB',
+                items: {
+                  create: lineItems.map((item) => ({
+                    listingId: item.listingId,
+                    quantityKg: item.quantityKg,
+                    farmGatePrice: item.farmGatePrice,
+                    deliveredPrice: item.farmGatePrice
+                      .add(LOGISTICS_COST_PER_KG)
+                      .mul(new Prisma.Decimal(1).add(BUYER_COMMISSION)),
+                  })),
+                },
+              },
+              include: { items: true },
+            });
+
+            // Atomic check-and-decrement — prevents oversell under concurrent orders
+            for (const item of lineItems) {
+              const updated = await tx.produceListing.updateMany({
+                where: { id: item.listingId, availableKg: { gte: item.quantityKg } },
+                data: { availableKg: { decrement: item.quantityKg } },
+              });
+              if (updated.count === 0) {
+                throw Object.assign(
+                  new Error(`Insufficient stock for listing ${item.listingId}`),
+                  { statusCode: 409, code: 'INSUFFICIENT_STOCK' }
+                );
+              }
+            }
+
+            const inv = await tx.invoice.create({
+              data: {
+                invoiceNumber,
+                orderId: o.id,
+                buyerSnapshot: { displayName: buyer.displayName },
+                lineItems: lineItems.map((item, idx) => ({
+                  name: listings[idx].product.name,
+                  quantityKg: item.quantityKg,
+                  farmGatePrice: item.farmGatePrice.toFixed(4),
+                  amount: item.farmGatePrice.mul(item.qty).toFixed(2),
+                })),
+                subtotal: deliveredPrice,
+                vatAmount: 0,
+                total: deliveredPrice,
+                dueDate: paymentDueDate,
+              },
+            });
+
+            return { order: o, invoiceId: inv.id };
+          });
+          return { ...result, orderNumber };
+        } catch (e) {
+          const isCollision = e instanceof Prisma.PrismaClientKnownRequestError
+            && e.code === 'P2002'
+            && (e.meta?.target as string[] | undefined)
+                ?.some(f => f === 'orderNumber' || f === 'invoiceNumber');
+          if (isCollision && attempt < 2) continue;
+          throw e;
         }
       }
-
-      const o = await tx.order.create({
-        data: {
-          orderNumber,
-          buyerId,
-          deliveryDate: new Date(input.deliveryDate),
-          totalFarmGateValue,
-          logisticsCharge,
-          deliveredPrice,
-          paymentTermDays: buyer.preferredPaymentTerms,
-          paymentDueDate,
-          notes: input.notes,
-          source: input.source ?? 'WEB',
-          items: {
-            create: lineItems.map((item) => ({
-              listingId: item.listingId,
-              quantityKg: item.quantityKg,
-              farmGatePrice: item.farmGatePrice,
-              deliveredPrice: item.farmGatePrice
-                .add(LOGISTICS_COST_PER_KG)
-                .mul(new Prisma.Decimal(1).add(BUYER_COMMISSION)),
-            })),
-          },
-        },
-        include: { items: true },
-      });
-
-      // Atomic check-and-decrement — prevents oversell under concurrent orders
-      for (const item of lineItems) {
-        const updated = await tx.produceListing.updateMany({
-          where: { id: item.listingId, availableKg: { gte: item.quantityKg } },
-          data: { availableKg: { decrement: item.quantityKg } },
-        });
-        if (updated.count === 0) {
-          throw Object.assign(
-            new Error(`Insufficient stock for listing ${item.listingId}`),
-            { statusCode: 409, code: 'INSUFFICIENT_STOCK' }
-          );
-        }
-      }
-
-      const inv = await tx.invoice.create({
-        data: {
-          invoiceNumber,
-          orderId: o.id,
-          buyerSnapshot: { displayName: buyer.displayName },
-          lineItems: lineItems.map((item, idx) => ({
-            name: listings[idx].product.name,
-            quantityKg: item.quantityKg,
-            farmGatePrice: item.farmGatePrice.toFixed(4),
-            amount: item.farmGatePrice.mul(item.qty).toFixed(2),
-          })),
-          subtotal: deliveredPrice,
-          vatAmount: 0,
-          total: deliveredPrice,
-          dueDate: paymentDueDate,
-        },
-      });
-
-      return { order: o, invoiceId: inv.id };
-    });
+      throw new Error('unreachable');
+    })();
 
     await audit({ userId: actorId, action: 'ORDER_CREATED', resourceType: 'Order', resourceId: order.id });
 
