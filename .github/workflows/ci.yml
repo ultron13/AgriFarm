@@ -41,7 +41,7 @@ jobs:
       NODE_ENV: test
       DATABASE_URL: postgres://farmconnect:farmconnect@localhost:5432/farmconnect_test
       REDIS_URL: redis://localhost:6379
-      JWT_SECRET: ci-test-secret
+      JWT_SECRET: test-secret
 
     steps:
       - uses: actions/checkout@v4
